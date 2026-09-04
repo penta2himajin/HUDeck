@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_PREVIEW_INTENSITY,
+  PREVIEW_ASPECT,
   PREVIEW_BG,
   PREVIEW_BG_LEVEL,
   PREVIEW_BORDER_RADIUS,
   PREVIEW_FONT_PX,
-  PREVIEW_WIDTH_RATIO,
+  PREVIEW_PAD_PX,
   TITLE_BAND_H,
   coverageInkByte,
   drawBandBorder,
@@ -17,9 +18,10 @@ import { GLASSES_LINE_HEIGHT_PX, contentInset, contentWidth } from './glasses-la
 import { FRAME_BORDER_RADIUS } from './hub-page.ts'
 
 describe('smooth greyscale preview', () => {
-  it('fixes companion ink at 55% and preview width at 90%', () => {
+  it('uses 20px preview pad and G2 2:1 aspect (official home rhythm)', () => {
     expect(DEFAULT_PREVIEW_INTENSITY).toBe(0.55)
-    expect(PREVIEW_WIDTH_RATIO).toBe(0.9)
+    expect(PREVIEW_PAD_PX).toBe(20)
+    expect(PREVIEW_ASPECT).toBe(2)
   })
 
   it('uses firmware line height, mild Hub borderRadius, and ~14px body size', () => {

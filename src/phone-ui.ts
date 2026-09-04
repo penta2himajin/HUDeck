@@ -87,6 +87,8 @@ export function createPhoneUi(root: HTMLElement, handlers: PhoneUiHandlers) {
   canvas.width = GLASSES_W
   canvas.height = GLASSES_H
   canvas.setAttribute('aria-label', 'Glasses display preview')
+  const previewWrap = el('div', 'glasses-preview')
+  previewWrap.append(canvas)
 
   const quick = el('section', 'quick-row')
   const qThr20 = quickButton('20°', pixelIcons.thr, () => handlers.onThreshold(20))
@@ -120,7 +122,7 @@ export function createPhoneUi(root: HTMLElement, handlers: PhoneUiHandlers) {
   const debugPre = el('pre', 'debug-panel__body')
   debug.append(debugPre)
 
-  root.append(appBar, canvas, quick, grid, debug)
+  root.append(appBar, previewWrap, quick, grid, debug)
 
   const setPressed = (btn: HTMLButtonElement, on: boolean) => {
     btn.classList.toggle('is-pressed', on)

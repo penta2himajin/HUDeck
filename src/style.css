@@ -10,6 +10,8 @@
   --radius-sm: 8px;
   --gap: 5px;
   --edge: 5px;
+  /* Official home: ~20px air around the glasses framebuffer (→ ~25px to cards with --gap). */
+  --preview-pad: 20px;
   --icon-feature: 15px;
   --icon-quick: 15px;
   --icon-bar: 15px;
@@ -76,17 +78,26 @@ body {
   image-rendering: pixelated;
 }
 
+.glasses-preview {
+  /*
+   * Official home: ~20px pad above/below the framebuffer; side inset matches that
+   * pad so width follows height via 576×288 (2:1). Shell --gap (5px) then makes
+   * preview→cards ≈ 25px.
+   */
+  margin: var(--preview-pad);
+  width: auto;
+  align-self: stretch;
+  /* Horizontal margins shrink the used width; canvas stays 2:1 inside. */
+  box-sizing: border-box;
+}
+
 .glasses-canvas {
   display: block;
-  /* 90% of the full phone width (content box + side --edge padding). */
-  width: calc((100% + 2 * var(--edge)) * 0.9);
-  max-width: calc((100% + 2 * var(--edge)) * 0.9);
+  width: 100%;
   height: auto;
-  margin: 0 auto;
   aspect-ratio: 576 / 288;
   background: var(--bg);
   border-radius: 0;
-  /* Smooth greyscale like the official companion mirror (not nearest-neighbor LEDs). */
   image-rendering: auto;
   border: none;
 }

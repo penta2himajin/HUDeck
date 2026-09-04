@@ -34,8 +34,10 @@ export const DOT_GHOST_LEVEL = 170
 export const DEFAULT_PREVIEW_INTENSITY = 0.55
 /** Hub `borderRadius` 0–10; mild rounding like the official shell. */
 export const PREVIEW_BORDER_RADIUS = 6
-/** Preview canvas width as a fraction of the phone shell. */
-export const PREVIEW_WIDTH_RATIO = 0.9
+/** Official home air around the glasses framebuffer (px). */
+export const PREVIEW_PAD_PX = 20
+/** G2 canvas aspect (576×288 = 2). */
+export const PREVIEW_ASPECT = GLASSES_W / GLASSES_H
 
 /**
  * Approximate LVGL evenroster body size. Hub has no font-size control;
