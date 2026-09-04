@@ -80,15 +80,14 @@ export type PaintPreviewOptions = {
 }
 
 /**
- * Paint the current glasses chrome into a canvas at 1:1 logical pixels,
- * then scale with nearest-neighbour for readability.
+ * Paint the current glasses chrome into a canvas at 1:1 logical pixels.
+ * Display scale is CSS-only (nearest-neighbour via image-rendering).
  */
 export function paintGlassesPreview(
   canvas: HTMLCanvasElement,
   view: GlassesView,
-  opts: PaintPreviewOptions = {},
+  _opts: PaintPreviewOptions = {},
 ): GlassesPreviewLayout {
-  const zoom = Math.max(1, Math.min(3, opts.zoom ?? 2))
   const layout = previewLayout(view)
   const { width: w, height: h } = layout
 
@@ -96,14 +95,10 @@ export function paintGlassesPreview(
     canvas.width = w
     canvas.height = h
   }
-  canvas.style.width = `${w * zoom}px`
-  canvas.style.height = `${h * zoom}px`
-  canvas.style.imageRendering = 'pixelated'
 
   const ctx = canvas.getContext('2d')
   if (!ctx) return layout
 
-  // Waveguide-dark: unlit = transparent world; we use near-black stage.
   ctx.fillStyle = levelToCss(0)
   ctx.fillRect(0, 0, w, h)
 
@@ -111,18 +106,17 @@ export function paintGlassesPreview(
     return layout
   }
 
-  const stroke = levelToCss(5)
-  const text = levelToCss(14)
+  const stroke = levelToCss(6)
+  const text = levelToCss(15)
 
   const drawBand = (
     band: PreviewBand,
     content: string,
     fontPx: number,
-    align: CanvasTextAlign,
   ) => {
     if (band.borderWidth > 0) {
       ctx.strokeStyle = stroke
-      ctx.lineWidth = band.borderWidth
+      ctx.lineWidth = Math.max(1, band.borderWidth)
       ctx.strokeRect(
         band.x + 0.5,
         band.y + 0.5,
@@ -132,26 +126,23 @@ export function paintGlassesPreview(
     }
     const lines = content.replace(/\r/g, '').split('\n')
     ctx.fillStyle = text
-    ctx.font = `${fontPx}px "IBM Plex Mono", ui-monospace, monospace`
+    ctx.font = `600 ${fontPx}px ui-monospace, "Cascadia Mono", "SF Mono", monospace`
     ctx.textBaseline = 'top'
-    ctx.textAlign = align
-    const x =
-      align === 'left'
-        ? band.x + band.padding
-        : band.x + band.width / 2
-    let y = band.y + band.padding
-    const lineH = fontPx + 4
+    ctx.textAlign = 'left'
+    const x = band.x + band.padding + 2
+    let y = band.y + band.padding + 2
+    const lineH = fontPx + 6
     for (const line of lines) {
-      if (!line.trim() && lines.length === 1) continue
+      if (line.length === 0 && lines.length === 1) continue
       ctx.fillText(line, x, y)
       y += lineH
       if (y > band.y + band.height - band.padding) break
     }
   }
 
-  drawBand(layout.titleBand, layout.titleText, 16, 'left')
+  drawBand(layout.titleBand, layout.titleText, 18)
   if (!(layout.quiet && view.kind === 'blank')) {
-    drawBand(layout.bodyBand, layout.bodyText, 14, 'left')
+    drawBand(layout.bodyBand, layout.bodyText, 16)
   }
 
   return layout
