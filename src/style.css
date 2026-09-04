@@ -1,13 +1,18 @@
 :root {
   --bg: #f0f0f0;
   --card: #ffffff;
-  --line: #d6d6d6;
+  --line: #e2e2e2;
   --line-strong: #1a1a1a;
   --text: #151515;
   --text-dim: #8a8a8a;
-  --pressed: #f5f5f5;
-  --radius: 18px;
-  --radius-sm: 14px;
+  --pressed: #ebebeb;
+  /* Even Hub home: ~12px cards, tight 8px gutters */
+  --radius: 12px;
+  --radius-sm: 10px;
+  --gap: 8px;
+  --icon-feature: 18px;
+  --icon-quick: 18px;
+  --icon-bar: 20px;
   --font: "Hiragino Sans", "Noto Sans JP", "SF Pro Text", "Segoe UI", sans-serif;
   --mono: "IBM Plex Mono", "SF Mono", ui-monospace, monospace;
   --safe-bottom: 12px;
@@ -33,10 +38,10 @@ body {
   max-width: 430px;
   margin: 0 auto;
   min-height: 100%;
-  padding: 12px 14px calc(72px + var(--safe-bottom));
+  padding: 10px 12px calc(64px + var(--safe-bottom));
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--gap);
   background: var(--bg);
 }
 
@@ -44,24 +49,24 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 4px 2px 2px;
+  padding: 2px 2px 0;
 }
 
 .app-bar__brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .app-bar__title {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
 .icon {
-  width: 24px;
-  height: 24px;
+  width: var(--icon-bar);
+  height: var(--icon-bar);
   display: block;
   color: var(--text);
   flex-shrink: 0;
@@ -76,8 +81,8 @@ body {
   width: 100%;
   height: auto;
   aspect-ratio: 576 / 288;
-  background: #000;
-  border-radius: var(--radius);
+  background: transparent;
+  border-radius: 0;
   image-rendering: pixelated;
   border: none;
 }
@@ -85,7 +90,7 @@ body {
 .quick-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  gap: var(--gap);
 }
 
 .quick-btn {
@@ -93,20 +98,20 @@ body {
   border: none;
   background: var(--card);
   border-radius: var(--radius-sm);
-  min-height: 64px;
+  min-height: 56px;
   padding: 8px 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   cursor: pointer;
   color: var(--text);
 }
 
 .quick-btn .icon {
-  width: 24px;
-  height: 24px;
+  width: var(--icon-quick);
+  height: var(--icon-quick);
 }
 
 .quick-btn__label {
@@ -124,7 +129,7 @@ body {
 .feature-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: var(--gap);
 }
 
 .feature-tile {
@@ -132,31 +137,31 @@ body {
   border: none;
   background: var(--card);
   border-radius: var(--radius);
-  min-height: 112px;
-  padding: 16px 14px;
+  min-height: 96px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   cursor: pointer;
   text-align: left;
   color: var(--text);
 }
 
 .feature-tile .icon {
-  width: 28px;
-  height: 28px;
+  width: var(--icon-feature);
+  height: var(--icon-feature);
 }
 
 .feature-tile__label {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   margin-top: auto;
 }
 
 .feature-tile__caption {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-dim);
   font-family: var(--mono);
 }
@@ -173,12 +178,12 @@ body {
 }
 
 .card--debug {
-  padding: 14px;
-  border: 1px solid var(--line);
+  padding: 12px;
+  border: none;
 }
 
 .debug-panel__title {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   font-size: 13px;
   font-weight: 600;
 }
@@ -204,7 +209,7 @@ body {
   gap: 0;
   background: var(--card);
   border-top: 1px solid var(--line);
-  padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
   z-index: 20;
 }
 
@@ -212,11 +217,11 @@ body {
   appearance: none;
   border: none;
   background: transparent;
-  height: 44px;
+  height: 40px;
   display: grid;
   place-items: center;
   color: var(--text);
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .tab-bar__item.is-active {
@@ -225,6 +230,6 @@ body {
 }
 
 .tab-bar__item .icon {
-  width: 24px;
-  height: 24px;
+  width: var(--icon-bar);
+  height: var(--icon-bar);
 }

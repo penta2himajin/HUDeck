@@ -6,6 +6,17 @@ export { GLASSES_H, GLASSES_W }
 /** Matches hub-page title band height for non-quiet views. */
 export const TITLE_BAND_H = 36
 
+/**
+ * G2 is dual 576×288 monochrome green micro-LED
+ * (@see https://hub.evenrealities.com/docs/reference/glossary#hardware).
+ * Even Hub's phone mirror paints that matrix as dark dots on the light
+ * companion background — not a solid black panel.
+ */
+export const DOT_PITCH = 2
+export const PREVIEW_BG = '#f0f0f0'
+export const DOT_ACTIVE = '#1a1a1a'
+export const DOT_GHOST = '#c8c8c8'
+
 export type PreviewBand = {
   x: number
   y: number
@@ -67,21 +78,130 @@ export function previewLayout(view: GlassesView): GlassesPreviewLayout {
   }
 }
 
-/** Gray levels 0–15 → CSS luminance (device-faithful tone, not phone chrome). */
-export function levelToCss(level: number): string {
-  const n = Math.max(0, Math.min(15, Math.round(level)))
-  const v = Math.round((n / 15) * 255)
-  return `rgb(${v},${v},${v})`
+/** Idle lookUp deck — ghosted when the glasses are blank. */
+export function plannedDeckView(): GlassesView {
+  return {
+    kind: 'deck',
+    title: 'HUDeck',
+    body: '> Record\n> Chat\nsuggest-armed: off',
+    indicator: null,
+  }
+}
+
+export type DotSample = {
+  x: number
+  y: number
+  kind: 'active' | 'ghost'
+}
+
+export function sampleDotsFromCoverage(args: {
+  width: number
+  height: number
+  active: ArrayLike<number>
+  ghost: ArrayLike<number>
+  pitch: number
+  activeThreshold?: number
+  ghostThreshold?: number
+}): DotSample[] {
+  const {
+    width,
+    height,
+    active,
+    ghost,
+    pitch,
+    activeThreshold = 0.35,
+    ghostThreshold = 0.18,
+  } = args
+  const dots: DotSample[] = []
+  for (let y = 0; y < height; y += pitch) {
+    for (let x = 0; x < width; x += pitch) {
+      let aSum = 0
+      let gSum = 0
+      let n = 0
+      for (let dy = 0; dy < pitch && y + dy < height; dy++) {
+        for (let dx = 0; dx < pitch && x + dx < width; dx++) {
+          const i = (y + dy) * width + (x + dx)
+          aSum += active[i] ?? 0
+          gSum += ghost[i] ?? 0
+          n++
+        }
+      }
+      const a = n ? aSum / n : 0
+      const g = n ? gSum / n : 0
+      if (a >= activeThreshold) dots.push({ x, y, kind: 'active' })
+      else if (g >= ghostThreshold) dots.push({ x, y, kind: 'ghost' })
+    }
+  }
+  return dots
+}
+
+function drawBandVector(
+  ctx: CanvasRenderingContext2D,
+  band: PreviewBand,
+  content: string,
+  fontPx: number,
+) {
+  if (band.height <= 1 || band.width <= 1) return
+  if (band.borderWidth > 0) {
+    ctx.strokeStyle = '#fff'
+    ctx.lineWidth = Math.max(1, band.borderWidth)
+    ctx.strokeRect(band.x + 0.5, band.y + 0.5, band.width - 1, band.height - 1)
+  }
+  const lines = content.replace(/\r/g, '').split('\n')
+  ctx.fillStyle = '#fff'
+  ctx.font = `700 ${fontPx}px ui-monospace, "Cascadia Mono", "SF Mono", monospace`
+  ctx.textBaseline = 'top'
+  ctx.textAlign = 'left'
+  const x = band.x + band.padding + 2
+  let y = band.y + band.padding + 2
+  const lineH = fontPx + 6
+  for (const line of lines) {
+    if (line.length === 0 && lines.length === 1) continue
+    ctx.fillText(line, x, y)
+    y += lineH
+    if (y > band.y + band.height - band.padding) break
+  }
+}
+
+/** Rasterize layout to 0..1 coverage (white ink on black). */
+export function rasterizeLayoutCoverage(
+  layout: GlassesPreviewLayout,
+  canvasFactory: () => HTMLCanvasElement | OffscreenCanvas = () =>
+    document.createElement('canvas'),
+): Float32Array {
+  const { width: w, height: h } = layout
+  const surface = canvasFactory()
+  surface.width = w
+  surface.height = h
+  const ctx = (
+    'getContext' in surface
+      ? surface.getContext('2d', { willReadFrequently: true })
+      : null
+  ) as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null
+  const out = new Float32Array(w * h)
+  if (!ctx) return out
+
+  ctx.fillStyle = '#000'
+  ctx.fillRect(0, 0, w, h)
+  if (!(layout.quiet && layout.titleBand.height <= 1)) {
+    drawBandVector(ctx as CanvasRenderingContext2D, layout.titleBand, layout.titleText, 18)
+    drawBandVector(ctx as CanvasRenderingContext2D, layout.bodyBand, layout.bodyText, 16)
+  }
+
+  const img = ctx.getImageData(0, 0, w, h)
+  for (let i = 0, p = 0; i < out.length; i++, p += 4) {
+    out[i] = img.data[p]! / 255
+  }
+  return out
 }
 
 export type PaintPreviewOptions = {
-  /** Logical zoom for nearest-neighbour scale (1–3). */
   zoom?: number
 }
 
 /**
- * Paint the current glasses chrome into a canvas at 1:1 logical pixels.
- * Display scale is CSS-only (nearest-neighbour via image-rendering).
+ * Even Hub–style matrix mirror: light companion bg, ghost (planned) dots,
+ * then black active dots for what is actually on the G2.
  */
 export function paintGlassesPreview(
   canvas: HTMLCanvasElement,
@@ -99,50 +219,27 @@ export function paintGlassesPreview(
   const ctx = canvas.getContext('2d')
   if (!ctx) return layout
 
-  ctx.fillStyle = levelToCss(0)
+  ctx.fillStyle = PREVIEW_BG
   ctx.fillRect(0, 0, w, h)
 
-  if (layout.quiet && view.kind === 'blank') {
-    return layout
-  }
+  const ghost = rasterizeLayoutCoverage(previewLayout(plannedDeckView()))
+  const active =
+    layout.quiet && view.kind === 'blank'
+      ? new Float32Array(w * h)
+      : rasterizeLayoutCoverage(layout)
 
-  const stroke = levelToCss(6)
-  const text = levelToCss(15)
+  const dots = sampleDotsFromCoverage({
+    width: w,
+    height: h,
+    active,
+    ghost,
+    pitch: DOT_PITCH,
+  })
 
-  const drawBand = (
-    band: PreviewBand,
-    content: string,
-    fontPx: number,
-  ) => {
-    if (band.borderWidth > 0) {
-      ctx.strokeStyle = stroke
-      ctx.lineWidth = Math.max(1, band.borderWidth)
-      ctx.strokeRect(
-        band.x + 0.5,
-        band.y + 0.5,
-        band.width - 1,
-        band.height - 1,
-      )
-    }
-    const lines = content.replace(/\r/g, '').split('\n')
-    ctx.fillStyle = text
-    ctx.font = `600 ${fontPx}px ui-monospace, "Cascadia Mono", "SF Mono", monospace`
-    ctx.textBaseline = 'top'
-    ctx.textAlign = 'left'
-    const x = band.x + band.padding + 2
-    let y = band.y + band.padding + 2
-    const lineH = fontPx + 6
-    for (const line of lines) {
-      if (line.length === 0 && lines.length === 1) continue
-      ctx.fillText(line, x, y)
-      y += lineH
-      if (y > band.y + band.height - band.padding) break
-    }
-  }
-
-  drawBand(layout.titleBand, layout.titleText, 18)
-  if (!(layout.quiet && view.kind === 'blank')) {
-    drawBand(layout.bodyBand, layout.bodyText, 16)
+  const r = Math.max(1, DOT_PITCH - 1)
+  for (const d of dots) {
+    ctx.fillStyle = d.kind === 'active' ? DOT_ACTIVE : DOT_GHOST
+    ctx.fillRect(d.x, d.y, r, r)
   }
 
   return layout
