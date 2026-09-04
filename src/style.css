@@ -1,12 +1,10 @@
 :root {
   --bg: #f0f0f0;
   --card: #ffffff;
-  --hud: #e8e8e8;
   --line: #d6d6d6;
   --line-strong: #1a1a1a;
   --text: #151515;
   --text-dim: #8a8a8a;
-  --chip: #ececec;
   --pressed: #f5f5f5;
   --radius: 18px;
   --radius-sm: 14px;
@@ -45,7 +43,7 @@ body {
 .app-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   padding: 4px 2px 2px;
 }
 
@@ -61,65 +59,16 @@ body {
   letter-spacing: -0.01em;
 }
 
-.app-bar__meta {
-  font-size: 12px;
-  color: var(--text-dim);
-}
-
 .icon {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   display: block;
   color: var(--text);
+  flex-shrink: 0;
 }
 
-.hero-row {
-  display: grid;
-  grid-template-columns: 1.35fr 1fr;
-  gap: 10px;
-  align-items: stretch;
-}
-
-.card {
-  background: var(--card);
-  border-radius: var(--radius);
-  border: 1px solid transparent;
-}
-
-.card--hud {
-  background: var(--hud);
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 168px;
-}
-
-.hud-card__top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-}
-
-.hud-card__date {
-  font-size: 11px;
-  color: var(--text-dim);
-  font-family: var(--mono);
-}
-
-.hud-card__pills {
-  display: flex;
-  gap: 4px;
-}
-
-.pill {
-  font-size: 10px;
-  font-family: var(--mono);
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: 999px;
-  padding: 2px 7px;
+.icon--pixel {
+  image-rendering: pixelated;
 }
 
 .glasses-canvas {
@@ -128,61 +77,9 @@ body {
   height: auto;
   aspect-ratio: 576 / 288;
   background: #000;
-  border-radius: 6px;
+  border-radius: var(--radius);
   image-rendering: pixelated;
-}
-
-.hud-card__foot {
-  font-size: 10px;
-  color: var(--text-dim);
-  font-family: var(--mono);
-}
-
-.card--status {
-  border: 1px solid var(--line-strong);
-  padding: 14px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  justify-content: center;
-}
-
-.status-card__icon-wrap {
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-}
-
-.status-card__icon-wrap .icon {
-  width: 20px;
-  height: 20px;
-}
-
-.status-card__title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.status-card__body {
-  margin: 0;
-  font-size: 12px;
-  color: var(--text-dim);
-  line-height: 1.4;
-}
-
-.status-card__meta {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-top: 4px;
-}
-
-.meta-line {
-  font-size: 11px;
-  font-family: var(--mono);
-  color: var(--text);
+  border: none;
 }
 
 .quick-row {
@@ -208,8 +105,8 @@ body {
 }
 
 .quick-btn .icon {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
 }
 
 .quick-btn__label {
@@ -248,8 +145,8 @@ body {
 }
 
 .feature-tile .icon {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
 }
 
 .feature-tile__label {
@@ -267,6 +164,12 @@ body {
 .feature-tile:active,
 .quick-btn:active {
   transform: scale(0.98);
+}
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid transparent;
 }
 
 .card--debug {
@@ -322,12 +225,6 @@ body {
 }
 
 .tab-bar__item .icon {
-  width: 22px;
-  height: 22px;
-}
-
-@media (max-width: 360px) {
-  .hero-row {
-    grid-template-columns: 1fr;
-  }
+  width: 24px;
+  height: 24px;
 }
