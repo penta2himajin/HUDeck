@@ -51,6 +51,14 @@ export const LOOKUP_HOLD_ENTER = 0.2
 export const LOOKUP_REACH_MS = 100
 /** Ignore further fires briefly after a control. */
 export const LOOKUP_EXEC_COOLDOWN_MS = 150
+/**
+ * After a tilt-L/R fire, easing |offset.y| back from its peak by this amount
+ * rearms the gesture without requiring full neutral (neck-friendly pulse).
+ * tilt-B (dbl) still clears only via neutral band.
+ */
+export const LOOKUP_ROLL_REARM_DROP = 0.08
+/** After rearm, |offset.y| must rise this much from the trough before a new dwell. */
+export const LOOKUP_ROLL_REARM_RISE = 0.04
 
 /**
  * Nod / tap: pitch must drop at least this many degrees below the lookUp
@@ -129,12 +137,15 @@ export type LookUpTiltStatus = {
   reaching: HoldControlGesture | null
   nodActive: boolean
   nodPeakDipDeg: number
+  rollPeakAbs: number
+  rollAwaitRise: boolean
 }
 
 /**
  * Session that arms only while lookUp. Baseline snaps on arm().
  * - nod (|Δroll| ≤ NOD_ROLL_MAX_DEG + pitch dip ≥ NOD_DIP_DEG then return) → tap
  * - tilt-B / L / R dwell → dbl / swipe-up / swipe-down
+ * - tilt-L/R rearm by easing |y| from peak by LOOKUP_ROLL_REARM_DROP (no full neutral)
  * - tilt-F hold alone does not fire (use nod for tap)
  */
 export class LookUpTiltSession {
@@ -146,6 +157,11 @@ export class LookUpTiltSession {
   private reachGesture: HoldControlGesture | null = null
   private reachSince: number | null = null
   private lastFireAt = Number.NEGATIVE_INFINITY
+  /** Peak |offset.y| while held on tilt-L/R (for peak-return rearm). */
+  private rollPeakAbs = 0
+  /** After peak-return rearm, wait for |y| to rise from trough before dwell. */
+  private rollAwaitRise = false
+  private rollTroughAbs = 0
 
   private nodActive = false
   private nodPeakDipDeg = 0
@@ -159,6 +175,9 @@ export class LookUpTiltSession {
     this.held = null
     this.reachGesture = null
     this.reachSince = null
+    this.rollPeakAbs = 0
+    this.rollAwaitRise = false
+    this.rollTroughAbs = 0
     this.clearNod()
   }
 
@@ -168,6 +187,9 @@ export class LookUpTiltSession {
     this.held = null
     this.reachGesture = null
     this.reachSince = null
+    this.rollPeakAbs = 0
+    this.rollAwaitRise = false
+    this.rollTroughAbs = 0
     this.clearNod()
   }
 
@@ -182,6 +204,8 @@ export class LookUpTiltSession {
       reaching: this.reachGesture,
       nodActive: this.nodActive,
       nodPeakDipDeg: this.nodPeakDipDeg,
+      rollPeakAbs: this.rollPeakAbs,
+      rollAwaitRise: this.rollAwaitRise,
     }
   }
 
@@ -194,6 +218,8 @@ export class LookUpTiltSession {
       baselineRollDeg: this.baseline ? this.baselineRollDeg : null,
       holdEnter: LOOKUP_HOLD_ENTER,
       reachMs: LOOKUP_REACH_MS,
+      rollRearmDrop: LOOKUP_ROLL_REARM_DROP,
+      rollRearmRise: LOOKUP_ROLL_REARM_RISE,
       nodDipDeg: NOD_DIP_DEG,
       nodReturnDeg: NOD_RETURN_DEG,
       nodRollMaxDeg: NOD_ROLL_MAX_DEG,
@@ -221,10 +247,23 @@ export class LookUpTiltSession {
     this.nodStartedAt = null
   }
 
+  private clearRollHold(): void {
+    this.held = null
+    this.rollPeakAbs = 0
+    this.rollAwaitRise = false
+    this.rollTroughAbs = 0
+    this.reachGesture = null
+    this.reachSince = null
+  }
+
   private fire(control: ControlId, now: number): ControlId | null {
     if (now - this.lastFireAt < LOOKUP_EXEC_COOLDOWN_MS) return null
     this.lastFireAt = now
     return control
+  }
+
+  private isRollHold(gesture: HoldControlGesture): boolean {
+    return gesture === 'tilt-L' || gesture === 'tilt-R'
   }
 
   /**
@@ -242,6 +281,7 @@ export class LookUpTiltSession {
     const deltaRoll = rollDeg - this.baselineRollDeg
     const mag = absMax(offset)
     const rollNearNeutral = Math.abs(deltaRoll) <= NOD_ROLL_MAX_DEG
+    const ay = Math.abs(offset.y)
 
     // --- Nod path (tap): near-neutral roll + pitch dip then return ---
     if (this.nodActive && this.nodStartedAt != null && now - this.nodStartedAt > NOD_MAX_MS) {
@@ -267,16 +307,14 @@ export class LookUpTiltSession {
       const peaked = this.nodPeakDipDeg <= -NOD_DIP_DEG
       this.clearNod()
       if (peaked) {
-        this.held = null
+        this.clearRollHold()
         return this.fire('tap', now)
       }
     }
 
     // --- Hold path: tilt-B / L / R only (not tilt-F) ---
     if (mag <= LOOKUP_NEUTRAL_BAND) {
-      this.held = null
-      this.reachGesture = null
-      this.reachSince = null
+      this.clearRollHold()
       return null
     }
 
@@ -285,7 +323,43 @@ export class LookUpTiltSession {
       // tilt-F dwell is ignored for controls (nod handles tap).
       this.reachGesture = null
       this.reachSince = null
+      // Leaving a roll hold into tilt-F clears roll peak lock.
+      if (this.held === 'tilt-L' || this.held === 'tilt-R') this.clearRollHold()
       return null
+    }
+
+    // Peak-return rearm for tilt-L/R: ease back from peak without full neutral.
+    if (this.held != null && this.isRollHold(this.held)) {
+      if (gesture === this.held) {
+        if (ay > this.rollPeakAbs) this.rollPeakAbs = ay
+        if (this.rollPeakAbs - ay >= LOOKUP_ROLL_REARM_DROP) {
+          this.held = null
+          this.rollPeakAbs = 0
+          this.reachGesture = null
+          this.reachSince = null
+          this.rollAwaitRise = true
+          this.rollTroughAbs = ay
+          return null
+        }
+        return null
+      }
+      // Opposite roll or tilt-B — drop previous lock.
+      this.held = null
+      this.rollPeakAbs = 0
+      this.rollAwaitRise = false
+      this.rollTroughAbs = 0
+    }
+
+    // After rearm, require a rising pulse from the trough before a new dwell.
+    if (this.rollAwaitRise && this.isRollHold(gesture)) {
+      if (ay < this.rollTroughAbs) this.rollTroughAbs = ay
+      if (ay < this.rollTroughAbs + LOOKUP_ROLL_REARM_RISE) {
+        this.reachGesture = null
+        this.reachSince = null
+        return null
+      }
+      this.rollAwaitRise = false
+      this.rollTroughAbs = 0
     }
 
     if (this.held === gesture) return null
@@ -303,6 +377,9 @@ export class LookUpTiltSession {
     }
 
     this.held = gesture
+    this.rollPeakAbs = this.isRollHold(gesture) ? ay : 0
+    this.rollAwaitRise = false
+    this.rollTroughAbs = 0
     this.reachGesture = null
     this.reachSince = null
     return this.fire(controlForHold(gesture), now)

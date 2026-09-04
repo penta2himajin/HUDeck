@@ -3,7 +3,9 @@ import {
   FIXED_CONTROL_TO_GESTURE,
   FIXED_GESTURE_TO_CONTROL,
   LOOKUP_HOLD_ENTER,
+  LOOKUP_EXEC_COOLDOWN_MS,
   LOOKUP_REACH_MS,
+  LOOKUP_ROLL_REARM_DROP,
   LookUpTiltSession,
   NOD_DIP_DEG,
   NOD_ROLL_MAX_DEG,
@@ -167,6 +169,54 @@ describe('LookUpTiltSession nod→tap', () => {
     expect(
       s.push({ x: 0.35, y: -0.35, z: 0.94, t: 1001 + LOOKUP_REACH_MS }),
     ).toBe('swipe-up')
+  })
+
+  it('rearms tilt-R after easing back from roll peak without full neutral', () => {
+    const s = new LookUpTiltSession()
+    s.arm({ x: 0.35, y: 0, z: 0.94, t: 0 })
+    s.push({ x: 0.35, y: 0.35, z: 0.94, t: 10 })
+    expect(s.push({ x: 0.35, y: 0.35, z: 0.94, t: 10 + LOOKUP_REACH_MS })).toBe(
+      'swipe-down',
+    )
+    // Still far from neutral — must not re-fire while held at peak.
+    expect(
+      s.push({
+        x: 0.35,
+        y: 0.35,
+        z: 0.94,
+        t: 10 + LOOKUP_REACH_MS + LOOKUP_EXEC_COOLDOWN_MS + 20,
+      }),
+    ).toBeNull()
+    // Ease back from peak by ≥ LOOKUP_ROLL_REARM_DROP, still above enter.
+    const eased = 0.35 - LOOKUP_ROLL_REARM_DROP
+    expect(eased).toBeGreaterThan(LOOKUP_HOLD_ENTER)
+    expect(s.push({ x: 0.35, y: eased, z: 0.94, t: 400 })).toBeNull()
+    expect(s.status().held).toBeNull()
+    // Holding the eased trough must not auto-fire — need a rising pulse.
+    expect(
+      s.push({
+        x: 0.35,
+        y: eased,
+        z: 0.94,
+        t: 400 + LOOKUP_REACH_MS + LOOKUP_EXEC_COOLDOWN_MS,
+      }),
+    ).toBeNull()
+    // Pulse outward again → second swipe without visiting neutral.
+    s.push({ x: 0.35, y: 0.35, z: 0.94, t: 700 })
+    expect(s.push({ x: 0.35, y: 0.35, z: 0.94, t: 700 + LOOKUP_REACH_MS })).toBe(
+      'swipe-down',
+    )
+  })
+
+  it('does not peak-rearm tilt-B (still needs neutral to repeat dbl)', () => {
+    const s = new LookUpTiltSession()
+    s.arm({ x: 0.35, y: 0, z: 0.94, t: 0 })
+    s.push({ x: 0.7, y: 0, z: 0.94, t: 1 })
+    expect(s.push({ x: 0.7, y: 0, z: 0.94, t: 1 + LOOKUP_REACH_MS })).toBe('dbl')
+    // Ease pitch back a lot but stay above enter — dbl stays locked.
+    expect(s.push({ x: 0.55, y: 0, z: 0.94, t: 200 })).toBeNull()
+    expect(s.status().held).toBe('tilt-B')
+    expect(s.push({ x: 0.7, y: 0, z: 0.94, t: 300 })).toBeNull()
   })
 
   it('keeps lookUp-relative nod usable with gravityAtPitchDeg helper', () => {
