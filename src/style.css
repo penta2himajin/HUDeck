@@ -202,6 +202,13 @@ body {
   font-weight: 600;
 }
 
+.debug-panel__ws {
+  margin: 0 0 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
 .debug-panel__body {
   margin: 0;
   white-space: pre-wrap;

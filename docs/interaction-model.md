@@ -129,6 +129,7 @@ Aligned with `even-head-tilt-control`. Fixed bindings (not user-editable yet):
 - **Base pose must be `lookUp`.** Flat neutral does not arm tilt controls. On enter lookUp, gravity is snapped as the gesture baseline; leaving lookUp disarms.
 - Hold enter threshold **0.20** (accel offset), dwell **100ms** before emitting dbl / swipe-*.
 - **Exit band is wide (threshold − 10°)** so nod dips and roll holds do not blank the deck.
+- **Dev debug-ws:** Vite serves `ws://…/__debug_ws`; phone streams IMU / tilt / control JSON to `/tmp/hudeck-debug.log` (override with `HUDECK_DEBUG_LOG`). Tail while dogfooding: `tail -f /tmp/hudeck-debug.log`. Production builds disable the client.
 - Temple while lookUp: `CLICK`→tap, `DOUBLE_CLICK`→dbl, `SCROLL_TOP`→swipe-up, `SCROLL_BOTTOM`→swipe-down.
 - Deck: swipe moves `menuIndex`; tap activates (Record / Chat / Settings); dbl is reserved for dismiss in nested modes / pending confirm.
 - Settings: swipe cycles 20°/30°; tap or dbl closes.

@@ -12,8 +12,19 @@ import {
   buildStartupPage,
   buildTitleUpgrade,
 } from './hub-page.ts'
-import { LookUpTiltSession, type ControlId } from './head-tilt.ts'
+import {
+  LOOKUP_HOLD_ENTER,
+  LOOKUP_REACH_MS,
+  LookUpTiltSession,
+  NOD_DIP_DEG,
+  type ControlId,
+} from './head-tilt.ts'
 import { parseAccelSample, type AccelSample } from './imu-parse.ts'
+import {
+  debugSend,
+  debugSendImu,
+  startDebugTelemetry,
+} from './debug-telemetry.ts'
 import {
   DEFAULT_LOOK_UP_THRESHOLD_DEG,
   isLookUpThresholdDeg,
@@ -85,6 +96,13 @@ function templeControl(type: OsEventTypeList | undefined | null): ControlId | nu
 }
 
 async function main() {
+  startDebugTelemetry()
+  debugSend('app', 'boot', {
+    holdEnter: LOOKUP_HOLD_ENTER,
+    reachMs: LOOKUP_REACH_MS,
+    nodDipDeg: NOD_DIP_DEG,
+  })
+
   const root = document.querySelector('#app')
   if (!(root instanceof HTMLElement)) throw new Error('#app missing')
   let state: AppState = initialState(Date.now(), {
@@ -149,9 +167,25 @@ async function main() {
     state = reduce(state, event, Date.now())
     if (beforePose !== state.pose) {
       syncTiltArm(state.pose, lastGravity)
+      debugSend('glasses', 'pose', {
+        from: beforePose,
+        to: state.pose,
+        pitchDeg,
+        rollDeg,
+        via: event.type,
+      })
+    }
+    if (event.type === 'control') {
+      debugSend('app', 'control', {
+        control: event.control,
+        mode: state.mode,
+        menuIndex: state.menuIndex,
+        tilt: tiltSession.telemetry(lastGravity ?? undefined),
+      })
     }
     if (event.type === 'setLookUpThreshold' || beforeThr !== state.lookUpThresholdDeg) {
       saveThreshold(state.lookUpThresholdDeg)
+      debugSend('app', 'threshold', { deg: state.lookUpThresholdDeg })
     }
     const structural =
       beforeMode !== state.mode ||
@@ -159,7 +193,27 @@ async function main() {
       beforePose !== state.pose ||
       beforeMenu !== state.menuIndex ||
       (state.confirm.status === 'pending' && event.type === 'pose')
+    if (beforeMode !== state.mode || beforeMenu !== state.menuIndex) {
+      debugSend('app', 'state', {
+        mode: state.mode,
+        menuIndex: state.menuIndex,
+        confirm: state.confirm.status,
+      })
+    }
     void paint(structural)
+  }
+
+  function emitTiltTelemetry(sample: AccelSample, control: ControlId | null) {
+    const lookUp = state.pose === 'lookUp'
+    debugSendImu(sample, { lookUp, force: lookUp })
+    if (lookUp) {
+      debugSend('glasses', 'tilt', {
+        ...tiltSession.telemetry(sample),
+        fired: control,
+        thrDeg: state.lookUpThresholdDeg,
+        poseSource,
+      })
+    }
   }
 
   function applyImuSample(sample: AccelSample, opts: { force?: boolean } = {}) {
@@ -171,9 +225,11 @@ async function main() {
     if (poseSource === 'manual' && !opts.force) {
       if (state.pose === 'lookUp') {
         const control = tiltSession.push(sample)
+        emitTiltTelemetry(sample, control)
         if (control) dispatch({ type: 'control', control })
         else void paint(false)
       } else {
+        debugSendImu(sample, { lookUp: false })
         void paint(false)
       }
       return
@@ -187,12 +243,14 @@ async function main() {
     if (nextPose !== state.pose) {
       if (nextPose === 'lookUp') tiltSession.arm(sample)
       else tiltSession.disarm()
+      emitTiltTelemetry(sample, null)
       dispatch({ type: 'pose', pose: nextPose })
       return
     }
     if (state.pose === 'lookUp') {
       if (!tiltSession.isArmed()) tiltSession.arm(sample)
       const control = tiltSession.push(sample)
+      emitTiltTelemetry(sample, control)
       if (control) {
         console.info(`[hudeck] control:${control} via tilt`)
         dispatch({ type: 'control', control })
@@ -200,6 +258,7 @@ async function main() {
       }
     } else {
       tiltSession.disarm()
+      debugSendImu(sample, { lookUp: false })
     }
     void paint(false)
   }

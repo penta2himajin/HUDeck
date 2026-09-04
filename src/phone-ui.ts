@@ -6,6 +6,7 @@ import {
 } from './glasses-preview.ts'
 import type { ControlId } from './head-tilt.ts'
 import { FIXED_CONTROL_TO_GESTURE } from './head-tilt.ts'
+import { getDebugStatus, onDebugStatus, type DebugWsStatus } from './debug-telemetry.ts'
 import type { AppState } from './state.ts'
 import { formatPhoneSummary, type GlassesView } from './state.ts'
 import {
@@ -149,10 +150,15 @@ export function createPhoneUi(root: HTMLElement, handlers: PhoneUiHandlers) {
 
   const debug = el('section', 'card card--debug')
   debug.append(el('h2', 'debug-panel__title', 'デバッグ'))
+  const debugWsLine = el('p', 'debug-panel__ws', `debug-ws: ${getDebugStatus()}`)
   const debugPre = el('pre', 'debug-panel__body')
-  debug.append(debugPre)
+  debug.append(debugWsLine, debugPre)
 
   root.append(appBar, previewWrap, quick, grid, debug)
+
+  onDebugStatus((next: DebugWsStatus) => {
+    debugWsLine.textContent = `debug-ws: ${next} → /tmp/hudeck-debug.log`
+  })
 
   const setPressed = (btn: HTMLButtonElement, on: boolean) => {
     btn.classList.toggle('is-pressed', on)

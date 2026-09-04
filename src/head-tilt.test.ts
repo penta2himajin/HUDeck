@@ -129,4 +129,15 @@ describe('LookUpTiltSession nod→tap', () => {
     expect(s.push({ ...dipped, t: 30 })).toBeNull()
     expect(s.push({ ...base, t: 60 })).toBe('tap')
   })
+
+  it('exposes tilt telemetry for debug-ws', () => {
+    const s = new LookUpTiltSession()
+    const base = gravityAtPitchDeg(25)
+    s.arm({ ...base, t: 0 })
+    const tel = s.telemetry({ ...gravityAtPitchDeg(25 - 6), t: 1 })
+    expect(tel.armed).toBe(true)
+    expect(tel.holdEnter).toBe(LOOKUP_HOLD_ENTER)
+    expect(tel.reachMs).toBe(LOOKUP_REACH_MS)
+    expect(tel.deltaPitchDeg).toBeCloseTo(-6, 0)
+  })
 })

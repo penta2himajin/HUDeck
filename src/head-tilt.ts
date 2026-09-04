@@ -178,6 +178,33 @@ export class LookUpTiltSession {
     }
   }
 
+  /** Snapshot for debug-ws (does not mutate). */
+  telemetry(sample?: GravitySample): Record<string, unknown> {
+    const st = this.status()
+    const out: Record<string, unknown> = {
+      ...st,
+      baselinePitchDeg: this.baseline ? this.baselinePitchDeg : null,
+      holdEnter: LOOKUP_HOLD_ENTER,
+      reachMs: LOOKUP_REACH_MS,
+      nodDipDeg: NOD_DIP_DEG,
+      nodReturnDeg: NOD_RETURN_DEG,
+    }
+    if (sample && this.baseline) {
+      const g = { x: sample.x, y: sample.y, z: sample.z }
+      const offset = sub(g, this.baseline)
+      const pitchDeg = pitchDegreesFromGravity(g)
+      const rollDeg = rollDegreesFromGravity(g)
+      out.sample = g
+      out.offset = offset
+      out.offsetMag = absMax(offset)
+      out.pitchDeg = pitchDeg
+      out.rollDeg = rollDeg
+      out.deltaPitchDeg = pitchDeg - this.baselinePitchDeg
+      out.holdZone = holdFromLookUpOffset(offset)
+    }
+    return out
+  }
+
   private clearNod(): void {
     this.nodActive = false
     this.nodPeakDipDeg = 0
