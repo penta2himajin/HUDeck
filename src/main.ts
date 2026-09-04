@@ -39,7 +39,7 @@ function evenHubHostPresent(): boolean {
   return typeof w.flutter_inappwebview?.callHandler === 'function'
 }
 
-async function waitForHost(timeoutMs = 8000): Promise<boolean> {
+async function waitForHost(timeoutMs = 300): Promise<boolean> {
   if (evenHubHostPresent()) return true
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
@@ -82,48 +82,13 @@ async function main() {
   let poseSource: PhoneImuStatus['source'] = 'none'
   let imuSampleSeen = false
   let imuOpen = false
+  let hub: EvenAppBridge | null = null
 
   const imuStatus = (): PhoneImuStatus => ({
     pitchDeg,
     thresholdDeg,
     source: poseSource,
   })
-
-  const phone = createPhoneUi(root, {
-    onPoseNeutral: () => {
-      poseSource = 'manual'
-      dispatch({ type: 'pose', pose: 'neutral' })
-    },
-    onPoseLookUp: () => {
-      poseSource = 'manual'
-      dispatch({ type: 'pose', pose: 'lookUp' })
-    },
-    onDetect: () => dispatch({ type: 'conversationDetected' }),
-    onNod: () => dispatch({ type: 'nod' }),
-    onRecord: () => dispatch({ type: 'startRecordingActive' }),
-    onStop: () => dispatch({ type: 'stopRecording' }),
-    onOpenChat: () => dispatch({ type: 'openChat' }),
-    onCloseChat: () => dispatch({ type: 'closeChat' }),
-    onThreshold: (deg) => {
-      thresholdDeg = deg
-      saveThreshold(deg)
-      if (pitchDeg != null) applyImuPitch(pitchDeg)
-      else void paint(false)
-    },
-    onMockLookUp: () => {
-      const g = gravityAtPitchDeg(thresholdDeg + 5)
-      window.__hudeckInjectImu?.(g.x, g.y, g.z)
-      applyImuPitch(pitchDegreesFromGravity(g))
-    },
-    onMockNeutral: () => {
-      const g = gravityAtPitchDeg(0)
-      window.__hudeckInjectImu?.(g.x, g.y, g.z)
-      applyImuPitch(pitchDegreesFromGravity(g))
-    },
-  })
-
-  const hasHost = await waitForHost()
-  const hub = hasHost ? await waitForEvenAppBridge() : null
 
   const paint = async (rebuild = false) => {
     const now = Date.now()
@@ -162,9 +127,14 @@ async function main() {
     void paint(structural)
   }
 
-  function applyImuPitch(nextPitch: number) {
+  function applyImuPitch(nextPitch: number, opts: { force?: boolean } = {}) {
     imuSampleSeen = true
     pitchDeg = nextPitch
+    // Manual pose buttons win over mock rest ticks until mock↑/mock→ (force) or real intent.
+    if (poseSource === 'manual' && !opts.force) {
+      void paint(false)
+      return
+    }
     poseSource = 'imu'
     const nextPose = resolveLookUpPose({
       pitchDeg: nextPitch,
@@ -176,6 +146,54 @@ async function main() {
     } else {
       void paint(false)
     }
+  }
+
+  const phone = createPhoneUi(root, {
+    onPoseNeutral: () => {
+      // Align mock gravity so the rest stream does not snap pose back.
+      const g = gravityAtPitchDeg(0)
+      window.__hudeckInjectImu?.(g.x, g.y, g.z)
+      poseSource = 'manual'
+      pitchDeg = 0
+      dispatch({ type: 'pose', pose: 'neutral' })
+    },
+    onPoseLookUp: () => {
+      const g = gravityAtPitchDeg(thresholdDeg + 5)
+      window.__hudeckInjectImu?.(g.x, g.y, g.z)
+      poseSource = 'manual'
+      pitchDeg = pitchDegreesFromGravity(g)
+      dispatch({ type: 'pose', pose: 'lookUp' })
+    },
+    onDetect: () => dispatch({ type: 'conversationDetected' }),
+    onNod: () => dispatch({ type: 'nod' }),
+    onRecord: () => dispatch({ type: 'startRecordingActive' }),
+    onStop: () => dispatch({ type: 'stopRecording' }),
+    onOpenChat: () => dispatch({ type: 'openChat' }),
+    onCloseChat: () => dispatch({ type: 'closeChat' }),
+    onThreshold: (deg) => {
+      thresholdDeg = deg
+      saveThreshold(deg)
+      if (pitchDeg != null) applyImuPitch(pitchDeg)
+      else void paint(false)
+    },
+    onMockLookUp: () => {
+      const g = gravityAtPitchDeg(thresholdDeg + 5)
+      window.__hudeckInjectImu?.(g.x, g.y, g.z)
+      applyImuPitch(pitchDegreesFromGravity(g), { force: true })
+    },
+    onMockNeutral: () => {
+      const g = gravityAtPitchDeg(0)
+      window.__hudeckInjectImu?.(g.x, g.y, g.z)
+      applyImuPitch(pitchDegreesFromGravity(g), { force: true })
+    },
+  })
+
+  // Preview + controls work immediately in plain browser; Hub attaches if present.
+  await paint(true)
+
+  const hasHost = await waitForHost()
+  if (hasHost) {
+    hub = await waitForEvenAppBridge()
   }
 
   const ensureImu = async (bridge: EvenAppBridge) => {
@@ -201,7 +219,7 @@ async function main() {
       const sysType = event.sysEvent?.eventType
       if (sysType === OsEventTypeList.IMU_DATA_REPORT && event.sysEvent?.imuData) {
         const sample = parseAccelSample(event.sysEvent.imuData as unknown, Date.now())
-        applyImuPitch(pitchDegreesFromGravity(sample))
+        applyImuPitch(pitchDegreesFromGravity(sample), { force: true })
         return
       }
 
@@ -227,10 +245,9 @@ async function main() {
     }
 
     window.addEventListener('pagehide', () => {
-      void stopImu(hub)
+      void stopImu(hub!)
     })
   } else {
-    await paint(true)
     console.info(READY_MARKER)
   }
 

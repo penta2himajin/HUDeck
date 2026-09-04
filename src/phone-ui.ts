@@ -1,9 +1,16 @@
+import {
+  DEFAULT_PREVIEW_INTENSITY,
+  GLASSES_H,
+  GLASSES_W,
+  paintGlassesPreview,
+} from './glasses-preview.ts'
 import type { AppState } from './state.ts'
 import { formatPhoneSummary, type GlassesView } from './state.ts'
 import {
   LOOK_UP_THRESHOLDS_DEG,
   type LookUpThresholdDeg,
 } from './look-up-pose.ts'
+import { createStoreIconSvg, pixelIcons } from './store-icon.ts'
 
 export type PhoneUiHandlers = {
   onPoseNeutral: () => void
@@ -25,46 +32,122 @@ export type PhoneImuStatus = {
   source: 'imu' | 'manual' | 'none'
 }
 
+function el<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  className?: string,
+  text?: string,
+): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag)
+  if (className) node.className = className
+  if (text != null) node.textContent = text
+  return node
+}
+
+function tileButton(
+  label: string,
+  caption: string,
+  iconRows: readonly string[],
+  onClick: () => void,
+  className = 'feature-tile',
+) {
+  const b = el('button', className)
+  b.type = 'button'
+  b.append(createStoreIconSvg(iconRows), el('span', 'feature-tile__label', label))
+  if (caption) b.append(el('span', 'feature-tile__caption', caption))
+  b.addEventListener('click', onClick)
+  return b
+}
+
+function quickButton(
+  label: string,
+  iconRows: readonly string[],
+  onClick: () => void,
+  className = 'quick-btn',
+) {
+  const b = el('button', className)
+  b.type = 'button'
+  b.title = label
+  b.setAttribute('aria-label', label)
+  b.append(createStoreIconSvg(iconRows), el('span', 'quick-btn__label', label))
+  b.addEventListener('click', onClick)
+  return b
+}
+
 export function createPhoneUi(root: HTMLElement, handlers: PhoneUiHandlers) {
   root.innerHTML = ''
-  const status = document.createElement('pre')
-  status.className = 'status'
-  const controls = document.createElement('div')
-  controls.className = 'controls'
+  root.classList.add('phone-shell')
 
-  const button = (label: string, onClick: () => void) => {
-    const b = document.createElement('button')
-    b.type = 'button'
-    b.textContent = label
-    b.addEventListener('click', onClick)
-    return b
-  }
+  const appBar = el('header', 'app-bar')
+  const brandWrap = el('div', 'app-bar__brand')
+  brandWrap.append(createStoreIconSvg(pixelIcons.menu), el('span', 'app-bar__title', 'HUDeck'))
+  appBar.append(brandWrap)
 
-  controls.append(
-    button('pose:neutral', handlers.onPoseNeutral),
-    button('pose:lookUp', handlers.onPoseLookUp),
-    button('thr:20°', () => handlers.onThreshold(20)),
-    button('thr:30°', () => handlers.onThreshold(30)),
-    button('mock↑', handlers.onMockLookUp),
-    button('mock→', handlers.onMockNeutral),
-    button('detect', handlers.onDetect),
-    button('nod', handlers.onNod),
-    button('record', handlers.onRecord),
-    button('stop', handlers.onStop),
-    button('chat', handlers.onOpenChat),
-    button('close chat', handlers.onCloseChat),
+  const canvas = document.createElement('canvas')
+  canvas.className = 'glasses-canvas'
+  canvas.width = GLASSES_W
+  canvas.height = GLASSES_H
+  canvas.setAttribute('aria-label', 'Glasses display preview')
+  const previewWrap = el('div', 'glasses-preview')
+  previewWrap.append(canvas)
+
+  const quick = el('section', 'quick-row')
+  const qThr20 = quickButton('20°', pixelIcons.thr, () => handlers.onThreshold(20))
+  const qThr30 = quickButton('30°', pixelIcons.thr, () => handlers.onThreshold(30))
+  const qMockUp = quickButton('mock↑', pixelIcons.mockUp, handlers.onMockLookUp)
+  const qMockFlat = quickButton('mock→', pixelIcons.mockFlat, handlers.onMockNeutral)
+  quick.append(qThr20, qThr30, qMockUp, qMockFlat)
+
+  const grid = el('section', 'feature-grid')
+  const btnLookUp = tileButton('見上げ', 'lookUp', pixelIcons.lookUp, handlers.onPoseLookUp)
+  const btnNeutral = tileButton('水平', 'neutral', pixelIcons.neutral, handlers.onPoseNeutral)
+  const btnDetect = tileButton('検知', 'detect', pixelIcons.detect, handlers.onDetect)
+  const btnNod = tileButton('うなずき', 'nod = confirm', pixelIcons.nod, handlers.onNod)
+  const btnRecord = tileButton('録音', 'record', pixelIcons.record, handlers.onRecord)
+  const btnStop = tileButton('停止', 'stop', pixelIcons.stop, handlers.onStop)
+  const btnChat = tileButton('チャット', 'open', pixelIcons.chat, handlers.onOpenChat)
+  const btnCloseChat = tileButton('閉じる', 'close chat', pixelIcons.close, handlers.onCloseChat)
+  grid.append(
+    btnLookUp,
+    btnNeutral,
+    btnDetect,
+    btnNod,
+    btnRecord,
+    btnStop,
+    btnChat,
+    btnCloseChat,
   )
 
-  root.append(status, controls)
+  const debug = el('section', 'card card--debug')
+  debug.append(el('h2', 'debug-panel__title', 'デバッグ'))
+  const debugPre = el('pre', 'debug-panel__body')
+  debug.append(debugPre)
+
+  root.append(appBar, previewWrap, quick, grid, debug)
+
+  const setPressed = (btn: HTMLButtonElement, on: boolean) => {
+    btn.classList.toggle('is-pressed', on)
+  }
 
   return {
     render(state: AppState, view: GlassesView, imu: PhoneImuStatus) {
+      paintGlassesPreview(canvas, view, { intensity: DEFAULT_PREVIEW_INTENSITY })
+
       const pitch =
-        imu.pitchDeg == null ? 'pitch:—' : `pitch:${imu.pitchDeg.toFixed(1)}°`
-      status.textContent = [
+        imu.pitchDeg == null ? '—' : `${imu.pitchDeg.toFixed(1)}°`
+
+      setPressed(btnLookUp, state.pose === 'lookUp')
+      setPressed(btnNeutral, state.pose === 'neutral')
+      setPressed(btnRecord, state.mode === 'recording')
+      setPressed(btnChat, state.mode === 'chat')
+      setPressed(qThr20, imu.thresholdDeg === 20)
+      setPressed(qThr30, imu.thresholdDeg === 30)
+
+      debugPre.textContent = [
         formatPhoneSummary(state, view),
-        `${pitch} thr:${imu.thresholdDeg}° src:${imu.source}`,
+        `${pitch === '—' ? 'pitch:—' : `pitch:${pitch}`} thr:${imu.thresholdDeg}° src:${imu.source}`,
         `thresholds:${LOOK_UP_THRESHOLDS_DEG.join('/')}`,
+        `canvas:${GLASSES_W}×${GLASSES_H}`,
+        `ink:${Math.round(DEFAULT_PREVIEW_INTENSITY * 100)}%`,
       ].join('\n')
     },
   }

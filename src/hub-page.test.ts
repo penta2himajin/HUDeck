@@ -24,6 +24,7 @@ describe('glassesChrome', () => {
     expect(chrome.quiet).toBe(false)
     expect(chrome.title).toContain('HUDeck')
     expect(chrome.bodyBorder).toBe(1)
+    expect(chrome.borderRadius).toBe(6)
   })
 
   it('shows REC indicator without brand frame at recording+neutral', () => {

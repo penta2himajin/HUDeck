@@ -15,12 +15,17 @@ declare global {
 
 /** Deskless helper: synthetic IMU when hardware/simulator provides none. */
 export function startMockImu(onSample: ImuListener): MockImuHandle {
+  // Hold last gravity so inject (and manual pose dogfood) stick across ticks.
+  let held = { x: 0, y: 0, z: 1 }
+  const emitHeld = () => {
+    onSample({ ...held, t: Date.now() })
+  }
   const inject = (x: number, y: number, z: number) => {
-    onSample({ x, y, z, t: Date.now() })
+    held = { x, y, z }
+    emitHeld()
   }
   window.__hudeckInjectImu = inject
-  // Keep a quiet rest stream so pitch stays ~0 until inject.
-  const id = window.setInterval(() => inject(0, 0, 1), 200)
+  const id = window.setInterval(emitHeld, 200)
   return {
     stop: () => {
       window.clearInterval(id)

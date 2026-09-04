@@ -13,12 +13,17 @@ export const BODY_ID = 2
 export const TITLE_NAME = 'title'
 export const BODY_NAME = 'body'
 
+/** Mild Hub borderRadius (0–10) for framed decks — matches official shell. */
+export const FRAME_BORDER_RADIUS = 6
+
 /** Layout chrome derived from view kind — pure, unit-tested. */
 export type GlassesChrome = {
   title: string
   body: string
   titleBorder: number
   bodyBorder: number
+  /** Hub `borderRadius` when a frame is drawn. */
+  borderRadius: number
   /** Quiet HUD: indicator-only or fully blank (no brand, no deck frame). */
   quiet: boolean
 }
@@ -34,6 +39,7 @@ export function glassesChrome(view: GlassesView): GlassesChrome {
       body: ' ',
       titleBorder: 0,
       bodyBorder: 0,
+      borderRadius: 0,
       quiet: true,
     }
   }
@@ -49,6 +55,7 @@ export function glassesChrome(view: GlassesView): GlassesChrome {
       body: ' ',
       titleBorder: 0,
       bodyBorder: 0,
+      borderRadius: 0,
       quiet: true,
     }
   }
@@ -62,6 +69,7 @@ export function glassesChrome(view: GlassesView): GlassesChrome {
       body: view.body || ' ',
       titleBorder: 0,
       bodyBorder: 1,
+      borderRadius: FRAME_BORDER_RADIUS,
       quiet: false,
     }
   }
@@ -72,6 +80,7 @@ export function glassesChrome(view: GlassesView): GlassesChrome {
     body: view.body || (view.indicator && !view.title ? view.indicator : ' '),
     titleBorder: 0,
     bodyBorder: 1,
+    borderRadius: FRAME_BORDER_RADIUS,
     quiet: false,
   }
 }
@@ -85,6 +94,7 @@ function titleProp(view: GlassesView) {
     height: chrome.quiet && view.kind === 'blank' ? 1 : 36,
     borderWidth: chrome.titleBorder,
     borderColor: 5,
+    borderRadius: chrome.titleBorder > 0 ? chrome.borderRadius : 0,
     paddingLength: chrome.quiet ? 0 : 4,
     containerID: TITLE_ID,
     containerName: TITLE_NAME,
@@ -105,6 +115,7 @@ function bodyProp(view: GlassesView) {
     height: quietBlank ? 1 : H - 36,
     borderWidth: chrome.bodyBorder,
     borderColor: 5,
+    borderRadius: chrome.bodyBorder > 0 ? chrome.borderRadius : 0,
     paddingLength: chrome.quiet ? 0 : 4,
     containerID: BODY_ID,
     containerName: BODY_NAME,
