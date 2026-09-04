@@ -36,7 +36,10 @@ describe('smooth greyscale preview', () => {
     const v = plannedDeckView()
     expect(v.kind).toBe('deck')
     expect(v.title).toContain('HUDeck')
-    expect(v.body).toContain('Record')
+    expect(v.title).toContain('| 12:00 |')
+    expect(v.body).toContain('▶ Record')
+    expect(v.body).toContain('> Chat')
+    expect(v.body).toContain('> Settings')
   })
 
   it('preview fill matches the phone page background (not pure white)', () => {

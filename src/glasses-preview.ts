@@ -1,4 +1,9 @@
 import {
+  DECK_MENU_RECORD,
+  formatDeckBody,
+  formatDeckHeader,
+} from './deck-chrome.ts'
+import {
   GLASSES_H,
   GLASSES_LINE_HEIGHT_PX,
   GLASSES_PADDING_LENGTH,
@@ -133,8 +138,8 @@ export function previewLayout(view: GlassesView): GlassesPreviewLayout {
 export function plannedDeckView(): GlassesView {
   return {
     kind: 'deck',
-    title: 'HUDeck',
-    body: '> Record\n> Chat\nsuggest-armed: off',
+    title: formatDeckHeader({ timeHm: '12:00' }),
+    body: formatDeckBody({ selectedIndex: DECK_MENU_RECORD }),
     indicator: null,
   }
 }

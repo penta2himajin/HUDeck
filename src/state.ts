@@ -1,4 +1,13 @@
+import {
+  DECK_MENU_RECORD,
+  REC_DOT_LABEL,
+  formatClockHm,
+  formatDeckBody,
+  formatDeckHeader,
+} from './deck-chrome.ts'
+
 /** Core interaction types for HUDeck (pure, unit-tested). */
+
 
 export type AppMode = 'idle' | 'recording' | 'chat'
 export type Pose = 'neutral' | 'lookUp'
@@ -203,8 +212,11 @@ export function deriveGlassesView(state: AppState, nowMs = nowProvider()): Glass
     if (state.confirm.tier === 'minimal') {
       return {
         kind: 'deck',
-        title: 'HUDeck',
-        body: deckBody(state),
+        title: formatDeckHeader({
+          timeHm: formatClockHm(new Date(nowMs)),
+          rightSlot: MINIMAL_CONFIRM_LABEL,
+        }),
+        body: formatDeckBody({ selectedIndex: DECK_MENU_RECORD }),
         indicator: MINIMAL_CONFIRM_LABEL,
       }
     }
@@ -234,14 +246,14 @@ export function deriveGlassesView(state: AppState, nowMs = nowProvider()): Glass
         kind: 'recording',
         title: '',
         body: '',
-        indicator: 'REC',
+        indicator: REC_DOT_LABEL,
       }
     }
     return {
       kind: 'recording',
-      title: `REC ${formatElapsed(elapsedSec)}`,
+      title: `${REC_DOT_LABEL} ${formatElapsed(elapsedSec)}`,
       body: state.suggesting ? 'suggest: on\n(transcript placeholder)' : '(transcript placeholder)',
-      indicator: 'REC',
+      indicator: REC_DOT_LABEL,
     }
   }
 
@@ -266,8 +278,10 @@ export function deriveGlassesView(state: AppState, nowMs = nowProvider()): Glass
   if (state.pose === 'lookUp') {
     return {
       kind: 'deck',
-      title: 'HUDeck',
-      body: deckBody(state),
+      title: formatDeckHeader({
+        timeHm: formatClockHm(new Date(nowMs)),
+      }),
+      body: formatDeckBody({ selectedIndex: DECK_MENU_RECORD }),
       indicator: null,
     }
   }
@@ -278,15 +292,6 @@ export function deriveGlassesView(state: AppState, nowMs = nowProvider()): Glass
     body: '',
     indicator: null,
   }
-}
-
-function deckBody(state: AppState): string {
-  const lines = [
-    '> Record',
-    '> Chat',
-    state.suggestArmed ? 'suggest-armed: on' : 'suggest-armed: off',
-  ]
-  return lines.join('\n')
 }
 
 export function formatElapsed(totalSec: number): string {

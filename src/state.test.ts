@@ -47,6 +47,10 @@ describe('confirm flow', () => {
     const view = deriveGlassesView(s, 50)
     expect(view.kind).toBe('deck')
     expect(view.indicator).toBe(MINIMAL_CONFIRM_LABEL)
+    expect(view.title).toContain(MINIMAL_CONFIRM_LABEL)
+    expect(view.title).toMatch(/\|\s*\d{2}:\d{2}\s*\|/)
+    expect(view.body).toContain('▶ Record')
+    expect(view.body).not.toContain('suggest')
   })
 
   it('demotes minimal to compact on lookDown, does not dismiss', () => {
@@ -107,16 +111,36 @@ describe('chat minimize', () => {
   })
 })
 
+describe('idle lookUp deck', () => {
+  it('shows brand | clock | menu without suggest-armed line', () => {
+    let s = initialState(0)
+    s = reduce(s, { type: 'pose', pose: 'lookUp' }, 0)
+    const view = deriveGlassesView(s, Date.UTC(2026, 0, 1, 15, 37))
+    expect(view.kind).toBe('deck')
+    expect(view.title).toContain('HUDeck')
+    expect(view.title).toMatch(/\|\s*\d{2}:\d{2}\s*\|/)
+    expect(view.title).not.toContain('REC')
+    expect(view.body.split('\n')).toEqual([
+      expect.stringMatching(/^━+$/),
+      '▶ Record',
+      '> Chat',
+      '> Settings',
+    ])
+    expect(view.body).not.toContain('suggest')
+    expect(view.indicator).toBeNull()
+  })
+})
+
 describe('recording views', () => {
-  it('shows indicator only at neutral', () => {
+  it('shows REC● indicator only at neutral', () => {
     let s = initialState(0)
     s = reduce(s, { type: 'startRecordingActive' }, 1000)
     const neutral = deriveGlassesView(s, 5000)
-    expect(neutral.indicator).toBe('REC')
+    expect(neutral.indicator).toBe('REC●')
     expect(neutral.body).toBe('')
     s = reduce(s, { type: 'pose', pose: 'lookUp' }, 5000)
     const up = deriveGlassesView(s, 5000)
-    expect(up.title).toContain('REC')
+    expect(up.title).toContain('REC●')
     expect(up.body).toContain('suggest: on')
   })
 })

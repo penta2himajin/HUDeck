@@ -61,11 +61,9 @@ export function glassesChrome(view: GlassesView): GlassesChrome {
   }
 
   if (view.kind === 'deck') {
-    const title = view.indicator
-      ? `${view.title}  ${view.indicator}`
-      : view.title || 'HUDeck'
+    // Title already carries brand | clock | optional right slot (REC● / REC?).
     return {
-      title,
+      title: view.title || 'HUDeck',
       body: view.body || ' ',
       titleBorder: 0,
       bodyBorder: 1,
