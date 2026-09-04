@@ -17,7 +17,7 @@ App
   mode:        idle | recording | chat | settings
   confirm:     inactive | pending(tier)
   suggesting:  on | off
-  lookUpThresholdDeg: 20 | 30
+  lookUpThresholdDeg: 15 | 20
 
 Body / environment
   pose:        neutral | lookUp
@@ -64,7 +64,7 @@ Weak → strong: **minimal < compact < detail**.
 | recording | lookUp | Elapsed / transcript / stop / mark (`REC●` in title) |
 | chat | lookUp | Chat UI |
 | chat | neutral | Minimized; session continues; tiny `C` indicator (tunable) |
-| settings | lookUp | Look-up threshold picker (20° / 30°) |
+| settings | lookUp | Look-up threshold picker (15° / 20°) |
 | settings | neutral | Minimized; tiny `S` indicator |
 
 ### Idle lookUp glance deck (chrome)
@@ -94,14 +94,14 @@ Entered from idle lookUp (phone **設定** tile or later deck focus). Same minim
 Settings
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Look-up
-▶ 20°
-> 30°
+▶ 15°
+> 20°
 ```
 
-- Switchable enter thresholds: **20°** (default) and **30°**, persisted in localStorage.
+- Switchable enter thresholds: **15°** and **20°** (default), persisted in localStorage.
 - Changing the threshold updates pose sensing immediately (and re-evaluates current pitch).
 - While `mode=settings`: do not raise confirm (same deferral as chat).
-- Phone quick buttons `20°` / `30°` remain available outside settings for deskless dogfood.
+- Phone quick buttons `15°` / `20°` remain available outside settings for deskless dogfood.
 
 ## Look-up sensing (IMU)
 
@@ -109,7 +109,7 @@ Look-up
 - Pitch: `atan2(x, z)` in degrees; **positive = look up** (head back / +x), rest ≈ +z.
 - Roll: `atan2(y, z)` in degrees; **positive = tilt-R** (+y), **negative = tilt-L** (−y). Phone debug shows both `pitch` and `roll`.
 - Threshold lives in app state (`lookUpThresholdDeg`); Settings UI and phone quick buttons both write it.
-- Hysteresis: leave `lookUp` when pitch &lt; threshold − **10°** (so a 20° enter keeps the deck through ~10°, reducing blank-outs during tilt-L/R).
+- Hysteresis: leave `lookUp` when pitch &lt; threshold − **10°** (15° enter keeps the deck through ~5°; 20° enter through ~10°).
 - After the first IMU sample, **temple click does not toggle pose** (avoids blank flicker vs continuous pitch). While lookUp, temple maps to the same controls as head tilt (below).
 - Phone buttons remain manual overrides for deskless dogfood.
 - Simulator has no IMU: use `?mockImu=1` or phone `mock↑` / `mock→` buttons; temple toggle stays available until IMU is seen.
@@ -132,7 +132,7 @@ Aligned with `even-head-tilt-control`. Fixed bindings (not user-editable yet):
 - **Dev debug-ws:** Vite serves `ws://…/__debug_ws`; phone streams IMU / tilt / control JSON to `/tmp/hudeck-debug.log` (override with `HUDECK_DEBUG_LOG`). Tail while dogfooding: `tail -f /tmp/hudeck-debug.log`. Production builds disable the client.
 - Temple while lookUp: `CLICK`→tap, `DOUBLE_CLICK`→dbl, `SCROLL_TOP`→swipe-up, `SCROLL_BOTTOM`→swipe-down.
 - Deck: swipe moves `menuIndex`; tap activates (Record / Chat / Settings); dbl is reserved for dismiss in nested modes / pending confirm.
-- Settings: swipe cycles 20°/30°; tap or dbl closes.
+- Settings: swipe cycles 15°/20°; tap or dbl closes.
 - Pending confirm while lookUp: tap accepts, dbl dismisses.
 
 ## Chat

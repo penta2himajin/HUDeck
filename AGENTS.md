@@ -41,7 +41,7 @@ Log `[hudeck] ready` only after `createStartUpPageContainer` (or plain-browser f
 
 - Keep interaction transitions in pure functions (`state.ts`, `look-up-pose.ts`) with vitest coverage.
 - Display is `f(mode, confirm, suggesting, pose)` — do not invent ad-hoc combined super-states.
-- Look-up pose from IMU pitch uses switchable 20°/30° thresholds (`look-up-pose.ts`); tune on device.
+- Look-up pose from IMU pitch uses switchable 15°/20° thresholds (`look-up-pose.ts`); tune on device.
 - Look-up HUD snaps on/off (no brightness ramp).
 - Tune copy such as `REC?` while dogfooding; defaults live in `state.ts` / the SoT doc.
 

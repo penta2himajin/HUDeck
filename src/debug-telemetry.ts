@@ -87,7 +87,8 @@ export function getDebugStatus(): typeof status {
 }
 
 function hookConsole() {
-  const levels = ['log', 'info', 'warn', 'error'] as const
+  // Only mirror warn/error — Hub SDK console.logs every IMU sample and floods the sink.
+  const levels = ['warn', 'error'] as const
   for (const level of levels) {
     const original = console[level].bind(console)
     console[level] = (...args: unknown[]) => {

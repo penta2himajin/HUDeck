@@ -161,7 +161,7 @@ describe('look-up settings', () => {
     expect(view.kind).toBe('settings')
     expect(view.title).toContain('Settings')
     expect(view.title).toMatch(/^Settings\n━/)
-    expect(view.body.split('\n')).toEqual(['Look-up', '▶ 20°', '> 30°'])
+    expect(view.body.split('\n')).toEqual(['Look-up', '> 15°', '▶ 20°'])
     expect(view.indicator).toBeNull()
   })
 
@@ -181,11 +181,11 @@ describe('look-up settings', () => {
     let s = initialState(0)
     s = reduce(s, { type: 'pose', pose: 'lookUp' }, 0)
     s = reduce(s, { type: 'openSettings' }, 1)
-    s = reduce(s, { type: 'setLookUpThreshold', deg: 30 }, 2)
-    expect(s.lookUpThresholdDeg).toBe(30)
+    s = reduce(s, { type: 'setLookUpThreshold', deg: 15 }, 2)
+    expect(s.lookUpThresholdDeg).toBe(15)
     expect(s.mode).toBe('settings')
     const view = deriveGlassesView(s, 2)
-    expect(view.body.split('\n')).toEqual(['Look-up', '> 20°', '▶ 30°'])
+    expect(view.body.split('\n')).toEqual(['Look-up', '▶ 15°', '> 20°'])
   })
 
   it('minimizes settings on lookDown and closes only via closeSettings', () => {
@@ -214,8 +214,8 @@ describe('look-up settings', () => {
 
   it('allows setLookUpThreshold from idle without opening settings', () => {
     let s = initialState(0)
-    s = reduce(s, { type: 'setLookUpThreshold', deg: 30 }, 1)
-    expect(s.lookUpThresholdDeg).toBe(30)
+    s = reduce(s, { type: 'setLookUpThreshold', deg: 15 }, 1)
+    expect(s.lookUpThresholdDeg).toBe(15)
     expect(s.mode).toBe('idle')
   })
 })
@@ -272,9 +272,9 @@ describe('lookUp head-tilt controls', () => {
     s = reduce(s, { type: 'pose', pose: 'lookUp' }, 0)
     s = reduce(s, { type: 'openSettings' }, 1)
     expect(s.lookUpThresholdDeg).toBe(20)
-    s = reduce(s, { type: 'control', control: 'swipe-down' }, 2)
-    expect(s.lookUpThresholdDeg).toBe(30)
+    s = reduce(s, { type: 'control', control: 'swipe-up' }, 2)
+    expect(s.lookUpThresholdDeg).toBe(15)
     const view = deriveGlassesView(s, 2)
-    expect(view.body).toContain('▶ 30°')
+    expect(view.body).toContain('▶ 15°')
   })
 })

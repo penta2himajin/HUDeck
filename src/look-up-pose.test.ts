@@ -9,8 +9,8 @@ import {
 } from './look-up-pose.ts'
 
 describe('LOOK_UP_THRESHOLDS_DEG', () => {
-  it('exposes switchable 20° and 30° options', () => {
-    expect(LOOK_UP_THRESHOLDS_DEG).toEqual([20, 30])
+  it('exposes switchable 15° and 20° options', () => {
+    expect(LOOK_UP_THRESHOLDS_DEG).toEqual([15, 20])
     expect(DEFAULT_LOOK_UP_THRESHOLD_DEG).toBe(20)
   })
 })
@@ -86,25 +86,40 @@ describe('resolveLookUpPose', () => {
     ).toBe('lookUp')
   })
 
-  it('enters lookUp only at 30° when threshold is 30', () => {
+  it('enters lookUp only at 15° when threshold is 15', () => {
     expect(
       resolveLookUpPose({
-        pitchDeg: 25,
-        thresholdDeg: 30,
+        pitchDeg: 14.9,
+        thresholdDeg: 15,
         previous: 'neutral',
       }),
     ).toBe('neutral')
     expect(
       resolveLookUpPose({
-        pitchDeg: 30,
-        thresholdDeg: 30,
-        previous: 'lookUp',
+        pitchDeg: 15,
+        thresholdDeg: 15,
+        previous: 'neutral',
       }),
     ).toBe('lookUp')
   })
 
   it('uses hysteresis so leaving lookUp requires dropping below threshold − 10°', () => {
-    // Still above exit band while in lookUp (20 − 10 = 10)
+    // 15° enter → exit below 5°
+    expect(
+      resolveLookUpPose({
+        pitchDeg: 5.1,
+        thresholdDeg: 15,
+        previous: 'lookUp',
+      }),
+    ).toBe('lookUp')
+    expect(
+      resolveLookUpPose({
+        pitchDeg: 4.9,
+        thresholdDeg: 15,
+        previous: 'lookUp',
+      }),
+    ).toBe('neutral')
+    // 20° enter → exit below 10°
     expect(
       resolveLookUpPose({
         pitchDeg: 10.1,
@@ -112,7 +127,6 @@ describe('resolveLookUpPose', () => {
         previous: 'lookUp',
       }),
     ).toBe('lookUp')
-    // Cross exit: 20 − 10 = 10
     expect(
       resolveLookUpPose({
         pitchDeg: 9.9,
@@ -123,7 +137,7 @@ describe('resolveLookUpPose', () => {
   })
 
   it('accepts only the switchable threshold union', () => {
-    const t: LookUpThresholdDeg = 30
+    const t: LookUpThresholdDeg = 15
     expect(LOOK_UP_THRESHOLDS_DEG.includes(t)).toBe(true)
   })
 })

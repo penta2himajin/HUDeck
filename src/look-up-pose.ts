@@ -1,7 +1,7 @@
 import type { Pose } from './state.ts'
 
 /** Switchable look-up pitch thresholds (degrees). */
-export const LOOK_UP_THRESHOLDS_DEG = [20, 30] as const
+export const LOOK_UP_THRESHOLDS_DEG = [15, 20] as const
 export type LookUpThresholdDeg = (typeof LOOK_UP_THRESHOLDS_DEG)[number]
 export const DEFAULT_LOOK_UP_THRESHOLD_DEG: LookUpThresholdDeg = 20
 
@@ -45,7 +45,7 @@ export function resolveLookUpPose(args: {
 }
 
 export function isLookUpThresholdDeg(value: unknown): value is LookUpThresholdDeg {
-  return value === 20 || value === 30
+  return value === 15 || value === 20
 }
 
 /**

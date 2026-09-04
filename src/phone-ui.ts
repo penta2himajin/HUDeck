@@ -101,8 +101,8 @@ export function createPhoneUi(root: HTMLElement, handlers: PhoneUiHandlers) {
   previewWrap.append(canvas)
 
   const quick = el('section', 'quick-row')
+  const qThr15 = quickButton('15°', pixelIcons.thr, () => handlers.onThreshold(15))
   const qThr20 = quickButton('20°', pixelIcons.thr, () => handlers.onThreshold(20))
-  const qThr30 = quickButton('30°', pixelIcons.thr, () => handlers.onThreshold(30))
   const qMockUp = quickButton('mock↑', pixelIcons.mockUp, handlers.onMockLookUp)
   const qMockFlat = quickButton('mock→', pixelIcons.mockFlat, handlers.onMockNeutral)
   const qTap = quickButton('tap', pixelIcons.nod, () => handlers.onControl('tap'))
@@ -111,7 +111,7 @@ export function createPhoneUi(root: HTMLElement, handlers: PhoneUiHandlers) {
   const qSwipeDown = quickButton('↓R', pixelIcons.neutral, () =>
     handlers.onControl('swipe-down'),
   )
-  quick.append(qThr20, qThr30, qMockUp, qMockFlat, qTap, qDbl, qSwipeUp, qSwipeDown)
+  quick.append(qThr15, qThr20, qMockUp, qMockFlat, qTap, qDbl, qSwipeUp, qSwipeDown)
 
   const grid = el('section', 'feature-grid')
   const btnLookUp = tileButton('見上げ', 'lookUp', pixelIcons.lookUp, handlers.onPoseLookUp)
@@ -178,8 +178,8 @@ export function createPhoneUi(root: HTMLElement, handlers: PhoneUiHandlers) {
       setPressed(btnRecord, state.mode === 'recording')
       setPressed(btnChat, state.mode === 'chat')
       setPressed(btnSettings, state.mode === 'settings')
+      setPressed(qThr15, imu.thresholdDeg === 15)
       setPressed(qThr20, imu.thresholdDeg === 20)
-      setPressed(qThr30, imu.thresholdDeg === 30)
 
       debugPre.textContent = [
         formatPhoneSummary(state, view),
