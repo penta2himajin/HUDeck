@@ -109,7 +109,7 @@ Look-up
 - Pitch: `atan2(x, z)` in degrees; **positive = look up** (head back / +x), rest ≈ +z.
 - Roll: `atan2(y, z)` in degrees; **positive = tilt-R** (+y), **negative = tilt-L** (−y). Phone debug shows both `pitch` and `roll`.
 - Threshold lives in app state (`lookUpThresholdDeg`); Settings UI and phone quick buttons both write it.
-- Hysteresis: leave `lookUp` when pitch &lt; threshold − **5°**.
+- Hysteresis: leave `lookUp` when pitch &lt; threshold − **10°** (so a 20° enter keeps the deck through ~10°, reducing blank-outs during tilt-L/R).
 - After the first IMU sample, **temple click does not toggle pose** (avoids blank flicker vs continuous pitch). While lookUp, temple maps to the same controls as head tilt (below).
 - Phone buttons remain manual overrides for deskless dogfood.
 - Simulator has no IMU: use `?mockImu=1` or phone `mock↑` / `mock→` buttons; temple toggle stays available until IMU is seen.
@@ -119,14 +119,15 @@ Look-up
 
 Aligned with `even-head-tilt-control`. Fixed bindings (not user-editable yet):
 
-| Control | Gesture | Axis vs lookUp baseline |
+| Control | Gesture | Detection vs lookUp baseline |
 |---|---|---|
-| `tap` | `tilt-F` | −x (chin toward display) |
-| `dbl` | `tilt-B` | +x (head further back) |
-| `swipe-up` | `tilt-L` | −y |
-| `swipe-down` | `tilt-R` | +y |
+| `tap` | `nod` | Pitch dip ≥ **−5°** then return to lookUp (oscillate; not a tilt-F hold) |
+| `dbl` | `tilt-B` | Hold further back (+x) |
+| `swipe-up` | `tilt-L` | Hold roll −y |
+| `swipe-down` | `tilt-R` | Hold roll +y |
 
 - **Base pose must be `lookUp`.** Flat neutral does not arm tilt controls. On enter lookUp, gravity is snapped as the gesture baseline; leaving lookUp disarms.
+- **Exit band is wide (threshold − 10°)** so nod dips and roll holds do not blank the deck.
 - Temple while lookUp: `CLICK`→tap, `DOUBLE_CLICK`→dbl, `SCROLL_TOP`→swipe-up, `SCROLL_BOTTOM`→swipe-down.
 - Deck: swipe moves `menuIndex`; tap activates (Record / Chat / Settings); dbl is reserved for dismiss in nested modes / pending confirm.
 - Settings: swipe cycles 20°/30°; tap or dbl closes.

@@ -103,19 +103,19 @@ describe('resolveLookUpPose', () => {
     ).toBe('lookUp')
   })
 
-  it('uses hysteresis so leaving lookUp requires dropping below threshold − 5°', () => {
-    // Still above exit band while in lookUp
+  it('uses hysteresis so leaving lookUp requires dropping below threshold − 10°', () => {
+    // Still above exit band while in lookUp (20 − 10 = 10)
     expect(
       resolveLookUpPose({
-        pitchDeg: 16,
+        pitchDeg: 10.1,
         thresholdDeg: 20,
         previous: 'lookUp',
       }),
     ).toBe('lookUp')
-    // Cross exit: 20 − 5 = 15
+    // Cross exit: 20 − 10 = 10
     expect(
       resolveLookUpPose({
-        pitchDeg: 14.9,
+        pitchDeg: 9.9,
         thresholdDeg: 20,
         previous: 'lookUp',
       }),

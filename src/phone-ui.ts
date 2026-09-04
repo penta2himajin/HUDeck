@@ -5,7 +5,7 @@ import {
   paintGlassesPreview,
 } from './glasses-preview.ts'
 import type { ControlId } from './head-tilt.ts'
-import { FIXED_CONTROL_TO_TILT } from './head-tilt.ts'
+import { FIXED_CONTROL_TO_GESTURE } from './head-tilt.ts'
 import type { AppState } from './state.ts'
 import { formatPhoneSummary, type GlassesView } from './state.ts'
 import {
@@ -178,7 +178,7 @@ export function createPhoneUi(root: HTMLElement, handlers: PhoneUiHandlers) {
       debugPre.textContent = [
         formatPhoneSummary(state, view),
         `pitch:${pitch} roll:${roll} thr:${imu.thresholdDeg}° src:${imu.source}`,
-        `tiltArmed:${imu.tiltArmed ? 'on' : 'off'} map:tap=${FIXED_CONTROL_TO_TILT.tap} dbl=${FIXED_CONTROL_TO_TILT.dbl} ↑=${FIXED_CONTROL_TO_TILT['swipe-up']} ↓=${FIXED_CONTROL_TO_TILT['swipe-down']}`,
+        `tiltArmed:${imu.tiltArmed ? 'on' : 'off'} map:tap=${FIXED_CONTROL_TO_GESTURE.tap} dbl=${FIXED_CONTROL_TO_GESTURE.dbl} ↑=${FIXED_CONTROL_TO_GESTURE['swipe-up']} ↓=${FIXED_CONTROL_TO_GESTURE['swipe-down']}`,
         `thresholds:${LOOK_UP_THRESHOLDS_DEG.join('/')}`,
         `canvas:${GLASSES_W}×${GLASSES_H}`,
         `ink:${Math.round(DEFAULT_PREVIEW_INTENSITY * 100)}%`,

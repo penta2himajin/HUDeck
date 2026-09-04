@@ -6,7 +6,7 @@ export type LookUpThresholdDeg = (typeof LOOK_UP_THRESHOLDS_DEG)[number]
 export const DEFAULT_LOOK_UP_THRESHOLD_DEG: LookUpThresholdDeg = 20
 
 /** Exit lookUp when pitch drops below threshold − hysteresis. */
-export const LOOK_UP_HYSTERESIS_DEG = 5
+export const LOOK_UP_HYSTERESIS_DEG = 10
 
 export type GravitySample = { x: number; y: number; z: number }
 
