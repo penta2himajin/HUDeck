@@ -16,9 +16,17 @@ export const TITLE_BAND_H = 36
 export const DOT_PITCH = 3
 /** Supersample before max-pool so strokes stay solid (AA text → muddy dots). */
 export const RASTER_SCALE = 3
-export const PREVIEW_BG = '#f0f0f0'
-export const DOT_ACTIVE = '#1c1c1c'
-export const DOT_GHOST = '#bdbdbd'
+export const PREVIEW_BG = '#ffffff'
+export const DOT_ACTIVE_LEVEL = 28
+export const DOT_GHOST_LEVEL = 190
+export const DEFAULT_PREVIEW_INTENSITY = 0.85
+
+/** Map a 0..255 ink level through preview intensity (1 = full contrast on white). */
+export function inkCss(level: number, intensity: number): string {
+  const i = Math.max(0, Math.min(1, intensity))
+  const v = Math.round(255 - (255 - level) * i)
+  return `rgb(${v},${v},${v})`
+}
 
 export type PreviewBand = {
   x: number
@@ -221,19 +229,22 @@ export function rasterizeLayoutCoverage(
 
 export type PaintPreviewOptions = {
   zoom?: number
+  /** 0..1 contrast of lit pixels on white (Even Hub–style mirror). */
+  intensity?: number
 }
 
 /**
- * Even Hub–style matrix mirror: light companion bg, ghost (planned) LED dots,
- * then dark active dots for what is on the G2.
+ * White-background matrix mirror with adjustable ink intensity.
+ * Ghost = planned lookUp deck; active = what is currently on the G2.
  */
 export function paintGlassesPreview(
   canvas: HTMLCanvasElement,
   view: GlassesView,
-  _opts: PaintPreviewOptions = {},
+  opts: PaintPreviewOptions = {},
 ): GlassesPreviewLayout {
   const layout = previewLayout(view)
   const { width: w, height: h } = layout
+  const intensity = opts.intensity ?? DEFAULT_PREVIEW_INTENSITY
 
   if (canvas.width !== w || canvas.height !== h) {
     canvas.width = w
@@ -260,12 +271,15 @@ export function paintGlassesPreview(
     pitch: DOT_PITCH,
   })
 
-  // Pixel-perfect LED stamps (no canvas arc AA) — closer to Even Hub companion.
+  const activeCss = inkCss(DOT_ACTIVE_LEVEL, intensity)
+  const ghostCss = inkCss(DOT_GHOST_LEVEL, Math.min(1, intensity * 0.55))
+
+  // Pixel-perfect LED stamps (no canvas arc AA).
   const r = 1
   for (const d of dots) {
     const cx = d.x + 1
     const cy = d.y + 1
-    ctx.fillStyle = d.kind === 'active' ? DOT_ACTIVE : DOT_GHOST
+    ctx.fillStyle = d.kind === 'active' ? activeCss : ghostCss
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
         if (dx * dx + dy * dy <= r * r + r) {

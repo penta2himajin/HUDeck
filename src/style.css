@@ -6,16 +6,16 @@
   --text: #232323;
   --text-dim: #7b7b7b;
   --pressed: #ebebeb;
-  --radius: 5px;
-  --radius-sm: 5px;
+  --radius: 8px;
+  --radius-sm: 8px;
   --gap: 5px;
+  --edge: 10px;
   --icon-feature: 15px;
   --icon-quick: 15px;
   --icon-bar: 15px;
   --icon-inset: 20px;
   --font: "Hiragino Sans", "Noto Sans JP", "SF Pro Text", "Segoe UI", sans-serif;
   --mono: "IBM Plex Mono", "SF Mono", ui-monospace, monospace;
-  --safe-bottom: 12px;
 }
 
 *,
@@ -38,7 +38,7 @@ body {
   max-width: 430px;
   margin: 0 auto;
   min-height: 100%;
-  padding: 10px 12px calc(64px + var(--safe-bottom));
+  padding: 10px var(--edge) 24px;
   display: flex;
   flex-direction: column;
   gap: var(--gap);
@@ -81,10 +81,36 @@ body {
   width: 100%;
   height: auto;
   aspect-ratio: 576 / 288;
-  background: transparent;
+  background: #ffffff;
   border-radius: 0;
   image-rendering: auto;
   border: none;
+}
+
+.ink-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px;
+}
+
+.ink-row__label {
+  font-size: 12px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.ink-row__slider {
+  flex: 1;
+  accent-color: var(--text);
+}
+
+.ink-row__value {
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--text-dim);
+  min-width: 2.5rem;
+  text-align: right;
 }
 
 .quick-row {
@@ -138,7 +164,6 @@ body {
   background: var(--card);
   border-radius: var(--radius);
   min-height: 96px;
-  /* Icon ~20px from top/left; label sits toward the bottom */
   padding: var(--icon-inset) 12px 12px var(--icon-inset);
   display: flex;
   flex-direction: column;
@@ -197,40 +222,4 @@ body {
   line-height: 1.45;
   color: var(--text-dim);
   min-height: 5rem;
-}
-
-.tab-bar {
-  position: fixed;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: min(430px, 100%);
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0;
-  background: var(--card);
-  border-top: 1px solid var(--line);
-  padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
-  z-index: 20;
-}
-
-.tab-bar__item {
-  appearance: none;
-  border: none;
-  background: transparent;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  color: var(--text);
-  border-radius: var(--radius);
-}
-
-.tab-bar__item.is-active {
-  outline: 1.5px solid var(--line-strong);
-  outline-offset: -4px;
-}
-
-.tab-bar__item .icon {
-  width: var(--icon-bar);
-  height: var(--icon-bar);
 }

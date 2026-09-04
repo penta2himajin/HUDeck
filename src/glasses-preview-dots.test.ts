@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DOT_PITCH,
   RASTER_SCALE,
+  inkCss,
   plannedDeckView,
   sampleDotsFromCoverage,
 } from './glasses-preview.ts'
@@ -22,12 +23,16 @@ describe('dot-matrix preview helpers', () => {
     expect(v.body).toContain('Record')
   })
 
+  it('inkCss lightens toward white as intensity drops', () => {
+    expect(inkCss(0, 1)).toBe('rgb(0,0,0)')
+    expect(inkCss(0, 0)).toBe('rgb(255,255,255)')
+  })
+
   it('samples coverage into active vs ghost dots on pitch grid', () => {
     const w = 6
     const h = 6
     const active = new Float32Array(w * h)
     const ghost = new Float32Array(w * h)
-    // Light a full 3×3 active cell at origin; ghost fills the rest.
     for (let y = 0; y < 3; y++) {
       for (let x = 0; x < 3; x++) active[y * w + x] = 1
     }
