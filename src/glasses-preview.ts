@@ -1,27 +1,47 @@
-import { glassesChrome, H as GLASSES_H, W as GLASSES_W } from './hub-page.ts'
+import {
+  GLASSES_H,
+  GLASSES_LINE_HEIGHT_PX,
+  GLASSES_PADDING_LENGTH,
+  GLASSES_W,
+  contentInset,
+  contentWidth,
+  wrapByPixels,
+} from './glasses-layout.ts'
+import { glassesChrome } from './hub-page.ts'
 import type { GlassesView } from './state.ts'
 
-export { GLASSES_H, GLASSES_W }
+export { GLASSES_H, GLASSES_W, GLASSES_LINE_HEIGHT_PX }
 
 /** Matches hub-page title band height for non-quiet views. */
 export const TITLE_BAND_H = 36
 
 /**
- * G2: dual 576×288 monochrome green micro-LED
- * (@see https://hub.evenrealities.com/docs/reference/glossary#hardware).
- * Official simulator screenshots are a 576×288 RGBA framebuffer; `--glow` is
- * phone/simulator post-process only. Even Hub's companion mirror paints that
- * matrix as clean LED dots on the light app background (not a black panel).
+ * G2: dual 576×288 monochrome green, 16 greyscale levels
+ * (@see https://hub.evenrealities.com/docs/build/display).
+ *
+ * Phone preview mirrors that as smooth greyscale on the page background —
+ * not a binary LED stamp (that made glyphs jagged).
  */
-export const DOT_PITCH = 3
-/** Supersample before max-pool so strokes stay solid (AA text → muddy dots). */
-export const RASTER_SCALE = 3
-/** Same as phone shell `--bg` so the matrix sits flush on the page. */
+export const RASTER_SCALE = 2
+/** Same as phone shell `--bg`. */
 export const PREVIEW_BG = '#f0f0f0'
 export const PREVIEW_BG_LEVEL = 0xf0
-export const DOT_ACTIVE_LEVEL = 28
-export const DOT_GHOST_LEVEL = 190
-export const DEFAULT_PREVIEW_INTENSITY = 0.85
+/** Full-ink grey for active chrome (near-black on page bg). */
+export const DOT_ACTIVE_LEVEL = 40
+/** Dim planned-deck ghost when the live view is blank. */
+export const DOT_GHOST_LEVEL = 170
+/** Even Hub companion mirror reads ~55% ink; fixed (no slider). */
+export const DEFAULT_PREVIEW_INTENSITY = 0.55
+/** Hub `borderRadius` 0–10; mild rounding like the official shell. */
+export const PREVIEW_BORDER_RADIUS = 6
+/** Preview canvas width as a fraction of the phone shell. */
+export const PREVIEW_WIDTH_RATIO = 0.9
+
+/**
+ * Approximate LVGL evenroster body size. Hub has no font-size control;
+ * advance widths cluster around ~14px for Latin capitals (pretext metrics).
+ */
+export const PREVIEW_FONT_PX = 14
 
 /** Map a 0..255 ink level through preview intensity (1 = full contrast on page bg). */
 export function inkCss(level: number, intensity: number): string {
@@ -32,12 +52,26 @@ export function inkCss(level: number, intensity: number): string {
   return `rgb(${v},${v},${v})`
 }
 
+/** Soft coverage 0..1 → grey byte on page background. */
+export function coverageInkByte(
+  coverage: number,
+  baseLevel: number,
+  intensity: number,
+): number {
+  const c = Math.max(0, Math.min(1, coverage))
+  const i = Math.max(0, Math.min(1, intensity)) * c
+  const bg = PREVIEW_BG_LEVEL
+  const ink = Math.min(baseLevel, bg)
+  return Math.round(bg - (bg - ink) * i)
+}
+
 export type PreviewBand = {
   x: number
   y: number
   width: number
   height: number
   borderWidth: number
+  borderRadius: number
   padding: number
 }
 
@@ -49,6 +83,7 @@ export type GlassesPreviewLayout = {
   bodyText: string
   titleBorder: number
   bodyBorder: number
+  borderRadius: number
   titleBand: PreviewBand
   bodyBand: PreviewBand
 }
@@ -59,7 +94,8 @@ export function previewLayout(view: GlassesView): GlassesPreviewLayout {
   const titleH = quietBlank ? 1 : TITLE_BAND_H
   const bodyY = quietBlank ? 1 : TITLE_BAND_H
   const bodyH = quietBlank ? 1 : GLASSES_H - TITLE_BAND_H
-  const pad = chrome.quiet ? 0 : 4
+  const pad = chrome.quiet ? 0 : GLASSES_PADDING_LENGTH
+  const radius = chrome.quiet ? 0 : chrome.borderRadius
 
   return {
     width: GLASSES_W,
@@ -69,12 +105,14 @@ export function previewLayout(view: GlassesView): GlassesPreviewLayout {
     bodyText: chrome.body,
     titleBorder: chrome.titleBorder,
     bodyBorder: chrome.bodyBorder,
+    borderRadius: radius,
     titleBand: {
       x: 0,
       y: 0,
       width: GLASSES_W,
       height: titleH,
       borderWidth: chrome.titleBorder,
+      borderRadius: chrome.titleBorder > 0 ? radius : 0,
       padding: pad,
     },
     bodyBand: {
@@ -83,6 +121,7 @@ export function previewLayout(view: GlassesView): GlassesPreviewLayout {
       width: GLASSES_W,
       height: bodyH,
       borderWidth: chrome.bodyBorder,
+      borderRadius: chrome.bodyBorder > 0 ? radius : 0,
       padding: pad,
     },
   }
@@ -98,94 +137,89 @@ export function plannedDeckView(): GlassesView {
   }
 }
 
-export type DotSample = {
-  x: number
-  y: number
-  kind: 'active' | 'ghost'
-}
-
-export function sampleDotsFromCoverage(args: {
-  width: number
-  height: number
-  active: ArrayLike<number>
-  ghost: ArrayLike<number>
-  pitch: number
-  activeThreshold?: number
-  ghostThreshold?: number
-}): DotSample[] {
-  const {
-    width,
-    height,
-    active,
-    ghost,
-    pitch,
-    activeThreshold = 0.45,
-    ghostThreshold = 0.45,
-  } = args
-  const dots: DotSample[] = []
-  for (let y = 0; y < height; y += pitch) {
-    for (let x = 0; x < width; x += pitch) {
-      let aSum = 0
-      let gSum = 0
-      let n = 0
-      for (let dy = 0; dy < pitch && y + dy < height; dy++) {
-        for (let dx = 0; dx < pitch && x + dx < width; dx++) {
-          const i = (y + dy) * width + (x + dx)
-          aSum += active[i] ?? 0
-          gSum += ghost[i] ?? 0
-          n++
-        }
-      }
-      const a = n ? aSum / n : 0
-      const g = n ? gSum / n : 0
-      if (a >= activeThreshold) dots.push({ x, y, kind: 'active' })
-      else if (g >= ghostThreshold) dots.push({ x, y, kind: 'ghost' })
-    }
+function roundRectPath(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  const rr = Math.max(0, Math.min(r, w / 2, h / 2))
+  ctx.beginPath()
+  if (typeof (ctx as CanvasRenderingContext2D).roundRect === 'function') {
+    ;(ctx as CanvasRenderingContext2D).roundRect(x, y, w, h, rr)
+    return
   }
-  return dots
+  ctx.moveTo(x + rr, y)
+  ctx.arcTo(x + w, y, x + w, y + h, rr)
+  ctx.arcTo(x + w, y + h, x, y + h, rr)
+  ctx.arcTo(x, y + h, x, y, rr)
+  ctx.arcTo(x, y, x + w, y, rr)
+  ctx.closePath()
 }
 
-function drawBandVector(
-  ctx: CanvasRenderingContext2D,
+/** Hub border stroke; supports mild `borderRadius` (official shell is slightly rounded). */
+export function drawBandBorder(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   band: PreviewBand,
-  content: string,
-  fontPx: number,
   scale: number,
 ) {
-  if (band.height <= 1 || band.width <= 1) return
+  if (band.borderWidth <= 0 || band.height <= 1 || band.width <= 1) return
   const s = scale
   const x0 = band.x * s
   const y0 = band.y * s
   const w = band.width * s
   const h = band.height * s
-  const pad = band.padding * s
+  const bw = Math.max(1, band.borderWidth * s)
+  const r = Math.max(0, band.borderRadius * s)
 
-  if (band.borderWidth > 0) {
-    ctx.strokeStyle = '#fff'
-    ctx.lineWidth = Math.max(s, band.borderWidth * s)
-    ctx.strokeRect(x0 + s / 2, y0 + s / 2, w - s, h - s)
-  }
+  ctx.strokeStyle = '#fff'
+  ctx.lineWidth = bw
+  ctx.lineJoin = 'round'
+  roundRectPath(ctx, x0 + bw / 2, y0 + bw / 2, w - bw, h - bw, Math.max(0, r - bw / 2))
+  ctx.stroke()
+}
 
-  const lines = content.replace(/\r/g, '').split('\n')
-  const fp = fontPx * s
+function drawBandVector(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  band: PreviewBand,
+  content: string,
+  scale: number,
+) {
+  if (band.height <= 1 || band.width <= 1) return
+  const s = scale
+  drawBandBorder(ctx, band, s)
+
+  const inset = contentInset(band.borderWidth, band.padding)
+  const maxW = contentWidth(band.width, band.borderWidth, band.padding)
+  if (maxW <= 0) return
+
+  const lines = wrapByPixels(content.replace(/\r/g, ''), maxW)
+  const fp = PREVIEW_FONT_PX * s
   ctx.fillStyle = '#fff'
-  ctx.font = `800 ${fp}px ui-monospace, "Cascadia Mono", "SF Mono", monospace`
+  // Proportional UI font — Hub font is not monospace (design guidelines).
+  // Keep default AA so glyphs stay smooth like the official companion mirror.
+  ctx.font = `500 ${fp}px "Noto Sans JP", "Hiragino Sans", "Segoe UI", sans-serif`
   ctx.textBaseline = 'top'
   ctx.textAlign = 'left'
-  const x = x0 + pad + s
-  let y = y0 + pad + s
-  const lineH = fp + 6 * s
+  ;(ctx as CanvasRenderingContext2D).imageSmoothingEnabled = true
+
+  const x = (band.x + inset) * s
+  let y = (band.y + inset) * s
+  const lineH = GLASSES_LINE_HEIGHT_PX * s
+  const yMax = (band.y + band.height - inset) * s
   for (const line of lines) {
     if (line.length === 0 && lines.length === 1) continue
+    if (y + fp > yMax) break
     ctx.fillText(line, x, y)
     y += lineH
-    if (y > y0 + h - pad) break
   }
 }
 
 /**
- * Rasterize layout to binary-ish 0..1 coverage via supersample + max-pool.
- * Max-pool keeps strokes solid; averaging AA fonts yields muddy LED dots.
+ * Soft greyscale coverage 0..1 via supersample + average
+ * (matches Hub’s 16-level greyscale look; avoids jagged binary LEDs).
  */
 export function rasterizeLayoutCoverage(
   layout: GlassesPreviewLayout,
@@ -210,22 +244,22 @@ export function rasterizeLayoutCoverage(
   ctx.fillStyle = '#000'
   ctx.fillRect(0, 0, sw, sh)
   if (!(layout.quiet && layout.titleBand.height <= 1)) {
-    drawBandVector(ctx as CanvasRenderingContext2D, layout.titleBand, layout.titleText, 18, scale)
-    drawBandVector(ctx as CanvasRenderingContext2D, layout.bodyBand, layout.bodyText, 16, scale)
+    drawBandVector(ctx, layout.titleBand, layout.titleText, scale)
+    drawBandVector(ctx, layout.bodyBand, layout.bodyText, scale)
   }
 
   const img = ctx.getImageData(0, 0, sw, sh)
+  const cell = scale * scale
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      let max = 0
+      let sum = 0
       for (let dy = 0; dy < scale; dy++) {
         for (let dx = 0; dx < scale; dx++) {
           const p = ((y * scale + dy) * sw + (x * scale + dx)) * 4
-          const v = img.data[p]! / 255
-          if (v > max) max = v
+          sum += img.data[p]! / 255
         }
       }
-      out[y * w + x] = max >= 0.5 ? 1 : 0
+      out[y * w + x] = sum / cell
     }
   }
   return out
@@ -233,13 +267,13 @@ export function rasterizeLayoutCoverage(
 
 export type PaintPreviewOptions = {
   zoom?: number
-  /** 0..1 contrast of lit pixels on white (Even Hub–style mirror). */
+  /** 0..1 contrast; defaults to fixed companion intensity. */
   intensity?: number
 }
 
 /**
- * Page-background matrix mirror with adjustable ink intensity.
- * Ghost = planned lookUp deck; active = what is currently on the G2.
+ * Smooth greyscale companion mirror (page bg).
+ * Ghost = planned lookUp deck; active = current G2 chrome.
  */
 export function paintGlassesPreview(
   canvas: HTMLCanvasElement,
@@ -258,40 +292,29 @@ export function paintGlassesPreview(
   const ctx = canvas.getContext('2d')
   if (!ctx) return layout
 
-  ctx.fillStyle = PREVIEW_BG
-  ctx.fillRect(0, 0, w, h)
-
   const ghost = rasterizeLayoutCoverage(previewLayout(plannedDeckView()))
   const active =
     layout.quiet && view.kind === 'blank'
       ? new Float32Array(w * h)
       : rasterizeLayoutCoverage(layout)
 
-  const dots = sampleDotsFromCoverage({
-    width: w,
-    height: h,
-    active,
-    ghost,
-    pitch: DOT_PITCH,
-  })
-
-  const activeCss = inkCss(DOT_ACTIVE_LEVEL, intensity)
-  const ghostCss = inkCss(DOT_GHOST_LEVEL, Math.min(1, intensity * 0.55))
-
-  // Pixel-perfect LED stamps (no canvas arc AA).
-  const r = 1
-  for (const d of dots) {
-    const cx = d.x + 1
-    const cy = d.y + 1
-    ctx.fillStyle = d.kind === 'active' ? activeCss : ghostCss
-    for (let dy = -r; dy <= r; dy++) {
-      for (let dx = -r; dx <= r; dx++) {
-        if (dx * dx + dy * dy <= r * r + r) {
-          ctx.fillRect(cx + dx, cy + dy, 1, 1)
-        }
-      }
-    }
+  const img = ctx.createImageData(w, h)
+  const data = img.data
+  const ghostIntensity = Math.min(1, intensity * 0.55)
+  for (let i = 0; i < w * h; i++) {
+    const a = active[i] ?? 0
+    const g = ghost[i] ?? 0
+    const activeByte = coverageInkByte(a, DOT_ACTIVE_LEVEL, intensity)
+    const ghostByte = coverageInkByte(g, DOT_GHOST_LEVEL, ghostIntensity)
+    // Darker wins on the light page background.
+    const v = Math.min(activeByte, ghostByte)
+    const p = i * 4
+    data[p] = v
+    data[p + 1] = v
+    data[p + 2] = v
+    data[p + 3] = 255
   }
+  ctx.putImageData(img, 0, 0)
 
   return layout
 }

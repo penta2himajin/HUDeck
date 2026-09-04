@@ -78,39 +78,17 @@ body {
 
 .glasses-canvas {
   display: block;
-  width: 100%;
+  /* 90% of the full phone width (content box + side --edge padding). */
+  width: calc((100% + 2 * var(--edge)) * 0.9);
+  max-width: calc((100% + 2 * var(--edge)) * 0.9);
   height: auto;
+  margin: 0 auto;
   aspect-ratio: 576 / 288;
   background: var(--bg);
   border-radius: 0;
+  /* Smooth greyscale like the official companion mirror (not nearest-neighbor LEDs). */
   image-rendering: auto;
   border: none;
-}
-
-.ink-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 2px;
-}
-
-.ink-row__label {
-  font-size: 12px;
-  color: var(--text-dim);
-  flex-shrink: 0;
-}
-
-.ink-row__slider {
-  flex: 1;
-  accent-color: var(--text);
-}
-
-.ink-row__value {
-  font-size: 11px;
-  font-family: var(--mono);
-  color: var(--text-dim);
-  min-width: 2.5rem;
-  text-align: right;
 }
 
 .quick-row {

@@ -73,24 +73,9 @@ function quickButton(
   return b
 }
 
-const INTENSITY_KEY = 'hudeck-preview-intensity-v1'
-
-function loadIntensity(): number {
-  try {
-    const n = Number(localStorage.getItem(INTENSITY_KEY))
-    if (Number.isFinite(n) && n >= 0.2 && n <= 1) return n
-  } catch {
-    /* ignore */
-  }
-  return DEFAULT_PREVIEW_INTENSITY
-}
-
 export function createPhoneUi(root: HTMLElement, handlers: PhoneUiHandlers) {
   root.innerHTML = ''
   root.classList.add('phone-shell')
-
-  let intensity = loadIntensity()
-  let lastView: GlassesView | null = null
 
   const appBar = el('header', 'app-bar')
   const brandWrap = el('div', 'app-bar__brand')
@@ -102,29 +87,6 @@ export function createPhoneUi(root: HTMLElement, handlers: PhoneUiHandlers) {
   canvas.width = GLASSES_W
   canvas.height = GLASSES_H
   canvas.setAttribute('aria-label', 'Glasses display preview')
-
-  const inkRow = el('div', 'ink-row')
-  inkRow.append(el('span', 'ink-row__label', '濃さ'))
-  const ink = document.createElement('input')
-  ink.type = 'range'
-  ink.className = 'ink-row__slider'
-  ink.min = '20'
-  ink.max = '100'
-  ink.step = '5'
-  ink.value = String(Math.round(intensity * 100))
-  ink.setAttribute('aria-label', 'プレビュー表示濃さ')
-  const inkVal = el('span', 'ink-row__value', `${Math.round(intensity * 100)}%`)
-  ink.addEventListener('input', () => {
-    intensity = Number(ink.value) / 100
-    inkVal.textContent = `${ink.value}%`
-    try {
-      localStorage.setItem(INTENSITY_KEY, String(intensity))
-    } catch {
-      /* ignore */
-    }
-    if (lastView) paintGlassesPreview(canvas, lastView, { intensity })
-  })
-  inkRow.append(ink, inkVal)
 
   const quick = el('section', 'quick-row')
   const qThr20 = quickButton('20°', pixelIcons.thr, () => handlers.onThreshold(20))
@@ -158,7 +120,7 @@ export function createPhoneUi(root: HTMLElement, handlers: PhoneUiHandlers) {
   const debugPre = el('pre', 'debug-panel__body')
   debug.append(debugPre)
 
-  root.append(appBar, canvas, inkRow, quick, grid, debug)
+  root.append(appBar, canvas, quick, grid, debug)
 
   const setPressed = (btn: HTMLButtonElement, on: boolean) => {
     btn.classList.toggle('is-pressed', on)
@@ -166,8 +128,7 @@ export function createPhoneUi(root: HTMLElement, handlers: PhoneUiHandlers) {
 
   return {
     render(state: AppState, view: GlassesView, imu: PhoneImuStatus) {
-      lastView = view
-      paintGlassesPreview(canvas, view, { intensity })
+      paintGlassesPreview(canvas, view, { intensity: DEFAULT_PREVIEW_INTENSITY })
 
       const pitch =
         imu.pitchDeg == null ? '—' : `${imu.pitchDeg.toFixed(1)}°`
@@ -184,7 +145,7 @@ export function createPhoneUi(root: HTMLElement, handlers: PhoneUiHandlers) {
         `${pitch === '—' ? 'pitch:—' : `pitch:${pitch}`} thr:${imu.thresholdDeg}° src:${imu.source}`,
         `thresholds:${LOOK_UP_THRESHOLDS_DEG.join('/')}`,
         `canvas:${GLASSES_W}×${GLASSES_H}`,
-        `ink:${Math.round(intensity * 100)}%`,
+        `ink:${Math.round(DEFAULT_PREVIEW_INTENSITY * 100)}%`,
       ].join('\n')
     },
   }
