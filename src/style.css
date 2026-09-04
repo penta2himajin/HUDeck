@@ -1,0 +1,45 @@
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: #10140f;
+  color: #e7efe4;
+  font-family: "IBM Plex Mono", "SF Mono", ui-monospace, monospace;
+}
+
+#app {
+  padding: 16px;
+  max-width: 42rem;
+}
+
+.status {
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 12px;
+  border: 1px solid #2a3328;
+  background: linear-gradient(160deg, #161b14, #0c0f0b);
+  min-height: 10rem;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.controls button {
+  appearance: none;
+  border: 1px solid #3d4a38;
+  background: #1a2118;
+  color: #e7efe4;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.controls button:hover {
+  border-color: #7ea36c;
+}
