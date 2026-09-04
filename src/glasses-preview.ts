@@ -1,3 +1,4 @@
+import { getTextWidth } from '@evenrealities/pretext'
 import {
   DECK_MENU_RECORD,
   formatDeckBody,
@@ -231,15 +232,16 @@ export function drawBandVector(
     if (line.length === 0 && lines.length === 1) continue
     if (y + fp > yMax) break
     if (isDeckRuleLine(line)) {
-      // Canvas ━ glyphs are ~8px vs pretext 20px — draw a bar so the rule
-      // reaches the content-box right edge in the phone preview.
-      // Pack directly under the header glyphs (avoid a blank-looking LVGL slot).
+      // Canvas ━ glyphs are ~8px vs pretext 20px — draw a bar whose width
+      // matches the Hub text rule (pretext getTextWidth), not the full content
+      // box. Filling maxW made the preview look longer than the glasses.
       if (prevWasText) {
         y = Math.max(band.y * s + inset * s, y - lineH + fp + 2 * s)
       }
       const barH = Math.max(2 * s, Math.round(fp * 0.12))
       const barY = y + Math.round((fp - barH) / 2)
-      ctx.fillRect(x, barY, maxW * s, barH)
+      const ruleW = getTextWidth(line)
+      ctx.fillRect(x, barY, ruleW * s, barH)
       prevWasText = false
     } else {
       ctx.fillText(line, x, y)

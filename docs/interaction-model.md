@@ -77,7 +77,8 @@ HUDeck        | 15:37 |        REC●
 
 - Header: `HUDeck` left, `| hh:mm |` with the **`:` on the content midline**, optional right slot (`REC●` / `REC?`).
 - Full-width rule on the next line, then menu rows — all consecutive in one body stream (title band collapsed) so there is no blank between rule and `▶ Record`.
-- Rule fills the content box to the right edge (`━`, topped up with thin `▬` when needed; phone preview draws a bar).
+- Rule fills with firmware-present `━` only (do not top up with missing glyphs like `▬` — those make Hub shorter than the phone preview).
+- Phone preview draws the rule as a bar of `getTextWidth(rule)` (not the full content box).
 - No Hub container border/frame on the glance deck or recording lookUp — chrome is text only.
 - Settings row is display-only until a settings flow exists.
 

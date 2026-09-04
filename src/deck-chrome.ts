@@ -32,13 +32,14 @@ export function padEndToWidth(text: string, maxPx: number): string {
   return s
 }
 
-/** Full-width rule sized to the content box (omochat / pretext). */
+/** Full-width rule sized to the content box (omochat / pretext).
+ * Uses only ━ (U+2501), which exists in evenroster (advW=20).
+ * Do not top up with ▬ etc. — those glyphs are missing from firmware fonts
+ * (getAdvW=0) so Hub draws a shorter rule than a preview fillRect(maxW).
+ */
 export function buildTitleSeparator(maxWidth: number): string {
   let s = ''
   while (getTextWidth(s + '━') <= maxWidth) s += '━'
-  // ━ is 20px; content width often leaves <20px. Top up with 4px bars so the
-  // rule reaches the content-box right edge (no visible shortfall).
-  while (getTextWidth(s + '▬') <= maxWidth) s += '▬'
   return s
 }
 
