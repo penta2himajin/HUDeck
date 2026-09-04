@@ -46,10 +46,11 @@ describe('previewLayout', () => {
 })
 
 describe('preview rule + ghost', () => {
-  it('detects deck rule lines for full-bleed canvas bars', () => {
+  it('detects deck rule lines for canvas bars matching Hub text width', () => {
     const rule = buildTitleSeparator(deckHeaderContentWidth())
     expect(isDeckRuleLine(rule)).toBe(true)
-    expect(getTextWidth(rule)).toBe(deckHeaderContentWidth())
+    expect(getTextWidth(rule)).toBeLessThanOrEqual(deckHeaderContentWidth())
+    expect(getTextWidth(rule + '━')).toBeGreaterThan(deckHeaderContentWidth())
     expect(isDeckRuleLine('▶ Record')).toBe(false)
     expect(isDeckRuleLine('HUDeck | 12:00 |')).toBe(false)
   })
@@ -63,7 +64,7 @@ describe('preview rule + ghost', () => {
     expect(shouldShowPlannedDeckGhost(deriveGlassesView(s, 1))).toBe(false)
   })
 
-  it('draws rule lines as a full content-width fillRect (not short ━ glyphs)', () => {
+  it('draws rule lines as a bar matching pretext rule width (not full maxW)', () => {
     const calls: string[] = []
     const ctx = {
       fillStyle: '',
@@ -83,6 +84,7 @@ describe('preview rule + ghost', () => {
     }
     const view = plannedDeckView()
     const layout = previewLayout(view)
+    const rule = layout.bodyText.split('\n').find((l) => l.startsWith('━'))!
     drawBandVector(
       ctx as unknown as CanvasRenderingContext2D,
       layout.bodyBand,
@@ -91,8 +93,9 @@ describe('preview rule + ghost', () => {
     )
     const bar = calls.find((c) => c.startsWith('fillRect:'))
     expect(bar).toBeTruthy()
-    // Content width 568 at scale 1, x starts at padding 4.
-    expect(bar).toBe('fillRect:4,568')
+    // Bar width must match the Hub text rule (pretext), not the full content box.
+    expect(bar).toBe(`fillRect:4,${getTextWidth(rule)}`)
+    expect(getTextWidth(rule)).toBeLessThan(deckHeaderContentWidth())
     expect(calls.some((c) => c.startsWith('fillText:━'))).toBe(false)
   })
 })

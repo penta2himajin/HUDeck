@@ -4,6 +4,9 @@ import {
   GLASSES_W,
   paintGlassesPreview,
 } from './glasses-preview.ts'
+import type { ControlId } from './head-tilt.ts'
+import { FIXED_CONTROL_TO_GESTURE } from './head-tilt.ts'
+import { getDebugStatus, onDebugStatus, type DebugWsStatus } from './debug-telemetry.ts'
 import type { AppState } from './state.ts'
 import { formatPhoneSummary, type GlassesView } from './state.ts'
 import {
@@ -17,10 +20,13 @@ export type PhoneUiHandlers = {
   onPoseLookUp: () => void
   onDetect: () => void
   onNod: () => void
+  onControl: (control: ControlId) => void
   onRecord: () => void
   onStop: () => void
   onOpenChat: () => void
   onCloseChat: () => void
+  onOpenSettings: () => void
+  onCloseSettings: () => void
   onThreshold: (deg: LookUpThresholdDeg) => void
   onMockLookUp: () => void
   onMockNeutral: () => void
@@ -28,8 +34,12 @@ export type PhoneUiHandlers = {
 
 export type PhoneImuStatus = {
   pitchDeg: number | null
+  /** Roll deg: + = tilt-R, − = tilt-L (null until first sample). */
+  rollDeg: number | null
   thresholdDeg: LookUpThresholdDeg
   source: 'imu' | 'manual' | 'none'
+  /** lookUp-baseline tilt session armed. */
+  tiltArmed: boolean
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -91,21 +101,41 @@ export function createPhoneUi(root: HTMLElement, handlers: PhoneUiHandlers) {
   previewWrap.append(canvas)
 
   const quick = el('section', 'quick-row')
+  const qThr15 = quickButton('15°', pixelIcons.thr, () => handlers.onThreshold(15))
   const qThr20 = quickButton('20°', pixelIcons.thr, () => handlers.onThreshold(20))
-  const qThr30 = quickButton('30°', pixelIcons.thr, () => handlers.onThreshold(30))
   const qMockUp = quickButton('mock↑', pixelIcons.mockUp, handlers.onMockLookUp)
   const qMockFlat = quickButton('mock→', pixelIcons.mockFlat, handlers.onMockNeutral)
-  quick.append(qThr20, qThr30, qMockUp, qMockFlat)
+  const qTap = quickButton('tap', pixelIcons.nod, () => handlers.onControl('tap'))
+  const qDbl = quickButton('dbl', pixelIcons.close, () => handlers.onControl('dbl'))
+  const qSwipeUp = quickButton('↑L', pixelIcons.lookUp, () => handlers.onControl('swipe-up'))
+  const qSwipeDown = quickButton('↓R', pixelIcons.neutral, () =>
+    handlers.onControl('swipe-down'),
+  )
+  quick.append(qThr15, qThr20, qMockUp, qMockFlat, qTap, qDbl, qSwipeUp, qSwipeDown)
 
   const grid = el('section', 'feature-grid')
   const btnLookUp = tileButton('見上げ', 'lookUp', pixelIcons.lookUp, handlers.onPoseLookUp)
   const btnNeutral = tileButton('水平', 'neutral', pixelIcons.neutral, handlers.onPoseNeutral)
   const btnDetect = tileButton('検知', 'detect', pixelIcons.detect, handlers.onDetect)
-  const btnNod = tileButton('うなずき', 'nod = confirm', pixelIcons.nod, handlers.onNod)
+  const btnNod = tileButton('うなずき', 'tap / confirm', pixelIcons.nod, handlers.onNod)
   const btnRecord = tileButton('録音', 'record', pixelIcons.record, handlers.onRecord)
   const btnStop = tileButton('停止', 'stop', pixelIcons.stop, handlers.onStop)
   const btnChat = tileButton('チャット', 'open', pixelIcons.chat, handlers.onOpenChat)
-  const btnCloseChat = tileButton('閉じる', 'close chat', pixelIcons.close, handlers.onCloseChat)
+  const btnSettings = tileButton(
+    '設定',
+    'look-up',
+    pixelIcons.gear,
+    handlers.onOpenSettings,
+  )
+  const btnClose = tileButton(
+    '閉じる',
+    'chat / settings',
+    pixelIcons.close,
+    () => {
+      handlers.onCloseChat()
+      handlers.onCloseSettings()
+    },
+  )
   grid.append(
     btnLookUp,
     btnNeutral,
@@ -114,15 +144,21 @@ export function createPhoneUi(root: HTMLElement, handlers: PhoneUiHandlers) {
     btnRecord,
     btnStop,
     btnChat,
-    btnCloseChat,
+    btnSettings,
+    btnClose,
   )
 
   const debug = el('section', 'card card--debug')
   debug.append(el('h2', 'debug-panel__title', 'デバッグ'))
+  const debugWsLine = el('p', 'debug-panel__ws', `debug-ws: ${getDebugStatus()}`)
   const debugPre = el('pre', 'debug-panel__body')
-  debug.append(debugPre)
+  debug.append(debugWsLine, debugPre)
 
   root.append(appBar, previewWrap, quick, grid, debug)
+
+  onDebugStatus((next: DebugWsStatus) => {
+    debugWsLine.textContent = `debug-ws: ${next} → /tmp/hudeck-debug.log`
+  })
 
   const setPressed = (btn: HTMLButtonElement, on: boolean) => {
     btn.classList.toggle('is-pressed', on)
@@ -134,17 +170,21 @@ export function createPhoneUi(root: HTMLElement, handlers: PhoneUiHandlers) {
 
       const pitch =
         imu.pitchDeg == null ? '—' : `${imu.pitchDeg.toFixed(1)}°`
+      const roll =
+        imu.rollDeg == null ? '—' : `${imu.rollDeg.toFixed(1)}°`
 
       setPressed(btnLookUp, state.pose === 'lookUp')
       setPressed(btnNeutral, state.pose === 'neutral')
       setPressed(btnRecord, state.mode === 'recording')
       setPressed(btnChat, state.mode === 'chat')
+      setPressed(btnSettings, state.mode === 'settings')
+      setPressed(qThr15, imu.thresholdDeg === 15)
       setPressed(qThr20, imu.thresholdDeg === 20)
-      setPressed(qThr30, imu.thresholdDeg === 30)
 
       debugPre.textContent = [
         formatPhoneSummary(state, view),
-        `${pitch === '—' ? 'pitch:—' : `pitch:${pitch}`} thr:${imu.thresholdDeg}° src:${imu.source}`,
+        `pitch:${pitch} roll:${roll} thr:${imu.thresholdDeg}° src:${imu.source}`,
+        `tiltArmed:${imu.tiltArmed ? 'on' : 'off'} map:tap=${FIXED_CONTROL_TO_GESTURE.tap} dbl=${FIXED_CONTROL_TO_GESTURE.dbl} ↑=${FIXED_CONTROL_TO_GESTURE['swipe-up']} ↓=${FIXED_CONTROL_TO_GESTURE['swipe-down']}`,
         `thresholds:${LOOK_UP_THRESHOLDS_DEG.join('/')}`,
         `canvas:${GLASSES_W}×${GLASSES_H}`,
         `ink:${Math.round(DEFAULT_PREVIEW_INTENSITY * 100)}%`,

@@ -12,6 +12,8 @@ import {
   formatDeckHeader,
   formatDeckPacked,
   formatDeckTitle,
+  formatSettingsBody,
+  formatSettingsTitle,
   padEndToWidth,
 } from './deck-chrome.ts'
 
@@ -22,14 +24,17 @@ describe('deck chrome', () => {
     expect(getTextWidth(s + ' ')).toBeGreaterThan(120)
   })
 
-  it('builds a single-line full-width title rule', () => {
+  it('builds a single-line title rule from firmware-present ━ only', () => {
     const max = deckHeaderContentWidth()
     const rule = buildTitleSeparator(max)
     expect(rule.length).toBeGreaterThan(10)
-    // Must reach the content-box right edge (no leftover gap shorter than a ━).
-    expect(getTextWidth(rule)).toBe(max)
-    expect(rule.startsWith('━')).toBe(true)
+    // Only ━ (U+2501) — toppers like ▬ are missing from evenroster (advW=0) and
+    // make the phone preview / Hub disagree on visible length.
+    expect(rule.replaceAll('━', '')).toBe('')
+    expect(getTextWidth(rule)).toBeLessThanOrEqual(max)
     expect(getTextWidth(rule + '━')).toBeGreaterThan(max)
+    // Leave a shortfall smaller than one ━ rather than inventing missing glyphs.
+    expect(max - getTextWidth(rule)).toBeLessThan(getTextWidth('━'))
   })
 
   it('formats HH:mm from a Date', () => {
@@ -76,7 +81,8 @@ describe('deck chrome', () => {
     expect(lines[0]).toContain('HUDeck')
     expect(lines[0]).toContain('| 15:37 |')
     expect(lines[1]!.startsWith('━')).toBe(true)
-    expect(getTextWidth(lines[1]!)).toBe(deckHeaderContentWidth())
+    expect(lines[1]!.replaceAll('━', '')).toBe('')
+    expect(getTextWidth(lines[1]!)).toBeLessThanOrEqual(deckHeaderContentWidth())
     expect(lines.slice(2)).toEqual([
       `${SELECTED_BULLET} ${DECK_MENU_ITEMS[0]}`,
       `> ${DECK_MENU_ITEMS[1]}`,
@@ -93,5 +99,13 @@ describe('deck chrome', () => {
       `> ${DECK_MENU_ITEMS[2]}`,
     ])
     expect(body).not.toContain('━')
+  })
+
+  it('formats settings title + look-up threshold rows', () => {
+    const titleLines = formatSettingsTitle().split('\n')
+    expect(titleLines[0]).toBe('Settings')
+    expect(titleLines[1]!.startsWith('━')).toBe(true)
+    expect(formatSettingsBody(20).split('\n')).toEqual(['Look-up', '> 15°', '▶ 20°'])
+    expect(formatSettingsBody(15).split('\n')).toEqual(['Look-up', '▶ 15°', '> 20°'])
   })
 })

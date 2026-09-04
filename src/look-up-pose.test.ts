@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_LOOK_UP_THRESHOLD_DEG,
+  LOOK_UP_EXIT_ROLL_GUARD_DEG,
   LOOK_UP_THRESHOLDS_DEG,
   pitchDegreesFromGravity,
   resolveLookUpPose,
+  rollDegreesFromGravity,
   type LookUpThresholdDeg,
 } from './look-up-pose.ts'
 
 describe('LOOK_UP_THRESHOLDS_DEG', () => {
-  it('exposes switchable 20° and 30° options', () => {
-    expect(LOOK_UP_THRESHOLDS_DEG).toEqual([20, 30])
+  it('exposes switchable 15° and 20° options', () => {
+    expect(LOOK_UP_THRESHOLDS_DEG).toEqual([15, 20])
     expect(DEFAULT_LOOK_UP_THRESHOLD_DEG).toBe(20)
   })
 })
@@ -43,6 +45,30 @@ describe('pitchDegreesFromGravity', () => {
   })
 })
 
+describe('rollDegreesFromGravity', () => {
+  it('is ~0° at level rest (gravity on +z)', () => {
+    expect(rollDegreesFromGravity({ x: 0, y: 0, z: 1 })).toBeCloseTo(0, 5)
+  })
+
+  it('reports positive degrees for tilt-R (+y)', () => {
+    const deg = rollDegreesFromGravity({
+      x: 0,
+      y: Math.sin((25 * Math.PI) / 180),
+      z: Math.cos((25 * Math.PI) / 180),
+    })
+    expect(deg).toBeCloseTo(25, 5)
+  })
+
+  it('reports negative degrees for tilt-L (−y)', () => {
+    const deg = rollDegreesFromGravity({
+      x: 0,
+      y: -Math.sin((15 * Math.PI) / 180),
+      z: Math.cos((15 * Math.PI) / 180),
+    })
+    expect(deg).toBeCloseTo(-15, 5)
+  })
+})
+
 describe('resolveLookUpPose', () => {
   it('enters lookUp at the configured threshold (20°)', () => {
     expect(
@@ -61,36 +87,84 @@ describe('resolveLookUpPose', () => {
     ).toBe('lookUp')
   })
 
-  it('enters lookUp only at 30° when threshold is 30', () => {
+  it('enters lookUp only at 15° when threshold is 15', () => {
     expect(
       resolveLookUpPose({
-        pitchDeg: 25,
-        thresholdDeg: 30,
+        pitchDeg: 14.9,
+        thresholdDeg: 15,
         previous: 'neutral',
       }),
     ).toBe('neutral')
     expect(
       resolveLookUpPose({
-        pitchDeg: 30,
-        thresholdDeg: 30,
-        previous: 'lookUp',
+        pitchDeg: 15,
+        thresholdDeg: 15,
+        previous: 'neutral',
       }),
     ).toBe('lookUp')
   })
 
-  it('uses hysteresis so leaving lookUp requires dropping below threshold − 5°', () => {
-    // Still above exit band while in lookUp
+  it('uses hysteresis so leaving lookUp requires dropping below threshold − 10°', () => {
+    // 15° enter → exit below 5° (roll near zero)
     expect(
       resolveLookUpPose({
-        pitchDeg: 16,
+        pitchDeg: 5.1,
+        rollDeg: 0,
+        thresholdDeg: 15,
+        previous: 'lookUp',
+      }),
+    ).toBe('lookUp')
+    expect(
+      resolveLookUpPose({
+        pitchDeg: 4.9,
+        rollDeg: 0,
+        thresholdDeg: 15,
+        previous: 'lookUp',
+      }),
+    ).toBe('neutral')
+    // 20° enter → exit below 10°
+    expect(
+      resolveLookUpPose({
+        pitchDeg: 10.1,
+        rollDeg: 0,
         thresholdDeg: 20,
         previous: 'lookUp',
       }),
     ).toBe('lookUp')
-    // Cross exit: 20 − 5 = 15
     expect(
       resolveLookUpPose({
-        pitchDeg: 14.9,
+        pitchDeg: 9.9,
+        rollDeg: 0,
+        thresholdDeg: 20,
+        previous: 'lookUp',
+      }),
+    ).toBe('neutral')
+  })
+
+  it('keeps lookUp when pitch is below exit but |roll| ≥ guard (side tilt in progress)', () => {
+    expect(LOOK_UP_EXIT_ROLL_GUARD_DEG).toBe(8)
+    // Would exit on pitch alone (9.9 < 10), but roll is in a L/R hold.
+    expect(
+      resolveLookUpPose({
+        pitchDeg: 9.9,
+        rollDeg: -LOOK_UP_EXIT_ROLL_GUARD_DEG,
+        thresholdDeg: 20,
+        previous: 'lookUp',
+      }),
+    ).toBe('lookUp')
+    expect(
+      resolveLookUpPose({
+        pitchDeg: 4,
+        rollDeg: 16,
+        thresholdDeg: 20,
+        previous: 'lookUp',
+      }),
+    ).toBe('lookUp')
+    // Roll just under the guard → pitch exit wins.
+    expect(
+      resolveLookUpPose({
+        pitchDeg: 9.9,
+        rollDeg: LOOK_UP_EXIT_ROLL_GUARD_DEG - 0.1,
         thresholdDeg: 20,
         previous: 'lookUp',
       }),
@@ -98,7 +172,7 @@ describe('resolveLookUpPose', () => {
   })
 
   it('accepts only the switchable threshold union', () => {
-    const t: LookUpThresholdDeg = 30
+    const t: LookUpThresholdDeg = 15
     expect(LOOK_UP_THRESHOLDS_DEG.includes(t)).toBe(true)
   })
 })

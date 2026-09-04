@@ -12,12 +12,27 @@ import {
   buildStartupPage,
   buildTitleUpgrade,
 } from './hub-page.ts'
-import { parseAccelSample } from './imu-parse.ts'
+import {
+  LOOKUP_HOLD_ENTER,
+  LOOKUP_REACH_MS,
+  LookUpTiltSession,
+  NOD_DIP_DEG,
+  NOD_ROLL_MAX_DEG,
+  type ControlId,
+} from './head-tilt.ts'
+import { parseAccelSample, type AccelSample } from './imu-parse.ts'
+import {
+  debugSend,
+  debugSendImu,
+  startDebugTelemetry,
+} from './debug-telemetry.ts'
 import {
   DEFAULT_LOOK_UP_THRESHOLD_DEG,
+  LOOK_UP_EXIT_ROLL_GUARD_DEG,
   isLookUpThresholdDeg,
   pitchDegreesFromGravity,
   resolveLookUpPose,
+  rollDegreesFromGravity,
   shouldIgnoreTemplePoseToggle,
   type LookUpThresholdDeg,
 } from './look-up-pose.ts'
@@ -72,22 +87,47 @@ function saveThreshold(deg: LookUpThresholdDeg): void {
   }
 }
 
+function templeControl(type: OsEventTypeList | undefined | null): ControlId | null {
+  if (type === OsEventTypeList.CLICK_EVENT || type === undefined || type === null) {
+    return 'tap'
+  }
+  if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) return 'dbl'
+  if (type === OsEventTypeList.SCROLL_TOP_EVENT) return 'swipe-up'
+  if (type === OsEventTypeList.SCROLL_BOTTOM_EVENT) return 'swipe-down'
+  return null
+}
+
 async function main() {
+  startDebugTelemetry()
+  debugSend('app', 'boot', {
+    holdEnter: LOOKUP_HOLD_ENTER,
+    reachMs: LOOKUP_REACH_MS,
+    nodDipDeg: NOD_DIP_DEG,
+    nodRollMaxDeg: NOD_ROLL_MAX_DEG,
+    exitRollGuardDeg: LOOK_UP_EXIT_ROLL_GUARD_DEG,
+  })
+
   const root = document.querySelector('#app')
   if (!(root instanceof HTMLElement)) throw new Error('#app missing')
-  let state: AppState = initialState(Date.now())
+  let state: AppState = initialState(Date.now(), {
+    lookUpThresholdDeg: loadThreshold(),
+  })
   let lastViewKey = ''
-  let thresholdDeg: LookUpThresholdDeg = loadThreshold()
   let pitchDeg: number | null = null
+  let rollDeg: number | null = null
+  let lastGravity: AccelSample | null = null
   let poseSource: PhoneImuStatus['source'] = 'none'
   let imuSampleSeen = false
   let imuOpen = false
   let hub: EvenAppBridge | null = null
+  const tiltSession = new LookUpTiltSession()
 
   const imuStatus = (): PhoneImuStatus => ({
     pitchDeg,
-    thresholdDeg,
+    rollDeg,
+    thresholdDeg: state.lookUpThresholdDeg,
     source: poseSource,
+    tiltArmed: tiltSession.isArmed(),
   })
 
   const paint = async (rebuild = false) => {
@@ -114,77 +154,174 @@ async function main() {
     lastViewKey = key
   }
 
+  function syncTiltArm(pose: AppState['pose'], sample: AccelSample | null) {
+    if (pose === 'lookUp' && sample) {
+      if (!tiltSession.isArmed()) tiltSession.arm(sample)
+    } else if (pose !== 'lookUp') {
+      tiltSession.disarm()
+    }
+  }
+
   function dispatch(event: AppEvent) {
     const beforeMode = state.mode
     const beforeConfirm = state.confirm.status
     const beforePose = state.pose
+    const beforeMenu = state.menuIndex
+    const beforeThr = state.lookUpThresholdDeg
     state = reduce(state, event, Date.now())
+    if (beforePose !== state.pose) {
+      syncTiltArm(state.pose, lastGravity)
+      debugSend('glasses', 'pose', {
+        from: beforePose,
+        to: state.pose,
+        pitchDeg,
+        rollDeg,
+        via: event.type,
+      })
+    }
+    if (event.type === 'control') {
+      debugSend('app', 'control', {
+        control: event.control,
+        mode: state.mode,
+        menuIndex: state.menuIndex,
+        tilt: tiltSession.telemetry(lastGravity ?? undefined),
+      })
+    }
+    if (event.type === 'setLookUpThreshold' || beforeThr !== state.lookUpThresholdDeg) {
+      saveThreshold(state.lookUpThresholdDeg)
+      debugSend('app', 'threshold', { deg: state.lookUpThresholdDeg })
+    }
     const structural =
       beforeMode !== state.mode ||
       beforeConfirm !== state.confirm.status ||
       beforePose !== state.pose ||
+      beforeMenu !== state.menuIndex ||
       (state.confirm.status === 'pending' && event.type === 'pose')
+    if (beforeMode !== state.mode || beforeMenu !== state.menuIndex) {
+      debugSend('app', 'state', {
+        mode: state.mode,
+        menuIndex: state.menuIndex,
+        confirm: state.confirm.status,
+      })
+    }
     void paint(structural)
   }
 
-  function applyImuPitch(nextPitch: number, opts: { force?: boolean } = {}) {
+  function emitTiltTelemetry(sample: AccelSample, control: ControlId | null) {
+    const lookUp = state.pose === 'lookUp'
+    debugSendImu(sample, { lookUp, force: lookUp })
+    if (lookUp) {
+      debugSend('glasses', 'tilt', {
+        ...tiltSession.telemetry(sample),
+        fired: control,
+        thrDeg: state.lookUpThresholdDeg,
+        poseSource,
+      })
+    }
+  }
+
+  function applyImuSample(sample: AccelSample, opts: { force?: boolean } = {}) {
     imuSampleSeen = true
-    pitchDeg = nextPitch
+    lastGravity = sample
+    pitchDeg = pitchDegreesFromGravity(sample)
+    rollDeg = rollDegreesFromGravity(sample)
     // Manual pose buttons win over mock rest ticks until mock↑/mock→ (force) or real intent.
     if (poseSource === 'manual' && !opts.force) {
-      void paint(false)
+      if (state.pose === 'lookUp') {
+        const control = tiltSession.push(sample)
+        emitTiltTelemetry(sample, control)
+        if (control) dispatch({ type: 'control', control })
+        else void paint(false)
+      } else {
+        debugSendImu(sample, { lookUp: false })
+        void paint(false)
+      }
       return
     }
     poseSource = 'imu'
     const nextPose = resolveLookUpPose({
-      pitchDeg: nextPitch,
-      thresholdDeg,
+      pitchDeg,
+      rollDeg,
+      thresholdDeg: state.lookUpThresholdDeg,
       previous: state.pose,
     })
     if (nextPose !== state.pose) {
+      if (nextPose === 'lookUp') tiltSession.arm(sample)
+      else tiltSession.disarm()
+      emitTiltTelemetry(sample, null)
       dispatch({ type: 'pose', pose: nextPose })
-    } else {
-      void paint(false)
+      return
     }
+    if (state.pose === 'lookUp') {
+      if (!tiltSession.isArmed()) tiltSession.arm(sample)
+      const control = tiltSession.push(sample)
+      emitTiltTelemetry(sample, control)
+      if (control) {
+        console.info(`[hudeck] control:${control} via tilt`)
+        dispatch({ type: 'control', control })
+        return
+      }
+    } else {
+      tiltSession.disarm()
+      debugSendImu(sample, { lookUp: false })
+    }
+    void paint(false)
   }
 
   const phone = createPhoneUi(root, {
     onPoseNeutral: () => {
-      // Align mock gravity so the rest stream does not snap pose back.
       const g = gravityAtPitchDeg(0)
       window.__hudeckInjectImu?.(g.x, g.y, g.z)
       poseSource = 'manual'
       pitchDeg = 0
+      rollDeg = 0
+      lastGravity = { ...g, t: Date.now() }
+      tiltSession.disarm()
       dispatch({ type: 'pose', pose: 'neutral' })
     },
     onPoseLookUp: () => {
-      const g = gravityAtPitchDeg(thresholdDeg + 5)
+      const g = gravityAtPitchDeg(state.lookUpThresholdDeg + 5)
       window.__hudeckInjectImu?.(g.x, g.y, g.z)
       poseSource = 'manual'
       pitchDeg = pitchDegreesFromGravity(g)
+      rollDeg = rollDegreesFromGravity(g)
+      lastGravity = { ...g, t: Date.now() }
+      tiltSession.arm(lastGravity)
       dispatch({ type: 'pose', pose: 'lookUp' })
     },
     onDetect: () => dispatch({ type: 'conversationDetected' }),
     onNod: () => dispatch({ type: 'nod' }),
+    onControl: (control) => dispatch({ type: 'control', control }),
     onRecord: () => dispatch({ type: 'startRecordingActive' }),
     onStop: () => dispatch({ type: 'stopRecording' }),
     onOpenChat: () => dispatch({ type: 'openChat' }),
     onCloseChat: () => dispatch({ type: 'closeChat' }),
+    onOpenSettings: () => dispatch({ type: 'openSettings' }),
+    onCloseSettings: () => dispatch({ type: 'closeSettings' }),
     onThreshold: (deg) => {
-      thresholdDeg = deg
-      saveThreshold(deg)
-      if (pitchDeg != null) applyImuPitch(pitchDeg)
-      else void paint(false)
+      dispatch({ type: 'setLookUpThreshold', deg })
+      if (lastGravity != null) applyImuSample(lastGravity)
+      else if (pitchDeg != null) {
+        // Re-resolve pose with the new threshold using last pitch.
+        const nextPose = resolveLookUpPose({
+          pitchDeg,
+          rollDeg: rollDeg ?? 0,
+          thresholdDeg: deg,
+          previous: state.pose,
+        })
+        if (nextPose !== state.pose) dispatch({ type: 'pose', pose: nextPose })
+        else void paint(false)
+      } else void paint(false)
     },
     onMockLookUp: () => {
-      const g = gravityAtPitchDeg(thresholdDeg + 5)
+      const g = gravityAtPitchDeg(state.lookUpThresholdDeg + 5)
       window.__hudeckInjectImu?.(g.x, g.y, g.z)
-      applyImuPitch(pitchDegreesFromGravity(g), { force: true })
+      applyImuSample({ ...g, t: Date.now() }, { force: true })
     },
     onMockNeutral: () => {
       const g = gravityAtPitchDeg(0)
       window.__hudeckInjectImu?.(g.x, g.y, g.z)
-      applyImuPitch(pitchDegreesFromGravity(g), { force: true })
+      applyImuSample({ ...g, t: Date.now() }, { force: true })
     },
   })
 
@@ -219,22 +356,31 @@ async function main() {
       const sysType = event.sysEvent?.eventType
       if (sysType === OsEventTypeList.IMU_DATA_REPORT && event.sysEvent?.imuData) {
         const sample = parseAccelSample(event.sysEvent.imuData as unknown, Date.now())
-        applyImuPitch(pitchDegreesFromGravity(sample), { force: true })
+        applyImuSample(sample, { force: true })
         return
       }
 
       const ev = pickEvent(event)
       if (!ev) return
       const type = ev.eventType
-      if (type === OsEventTypeList.CLICK_EVENT || type === undefined || type === null) {
-        if (shouldIgnoreTemplePoseToggle({ imuSampleSeen, poseSource })) {
-          return
-        }
+      const control = templeControl(type)
+
+      if (state.pose === 'lookUp' && control) {
+        console.info(`[hudeck] control:${control} via temple`)
+        dispatch({ type: 'control', control })
+        return
+      }
+
+      // Before IMU: temple click toggles pose for deskless sim.
+      if (
+        (type === OsEventTypeList.CLICK_EVENT || type === undefined || type === null) &&
+        !shouldIgnoreTemplePoseToggle({ imuSampleSeen, poseSource })
+      ) {
         poseSource = 'manual'
-        dispatch({
-          type: 'pose',
-          pose: state.pose === 'lookUp' ? 'neutral' : 'lookUp',
-        })
+        const next = state.pose === 'lookUp' ? 'neutral' : 'lookUp'
+        if (next === 'lookUp' && lastGravity) tiltSession.arm(lastGravity)
+        else tiltSession.disarm()
+        dispatch({ type: 'pose', pose: next })
       }
     })
 
@@ -253,7 +399,7 @@ async function main() {
 
   if (mockImuEnabled() || !hub) {
     startMockImu((sample) => {
-      applyImuPitch(pitchDegreesFromGravity(sample))
+      applyImuSample(sample)
     })
   }
 

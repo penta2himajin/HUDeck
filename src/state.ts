@@ -1,15 +1,27 @@
 import {
+  DECK_MENU_CHAT,
+  DECK_MENU_ITEMS,
   DECK_MENU_RECORD,
+  DECK_MENU_SETTINGS,
   REC_DOT_LABEL,
   formatClockHm,
   formatDeckBody,
   formatDeckTitle,
+  formatSettingsBody,
+  formatSettingsTitle,
 } from './deck-chrome.ts'
+import type { ControlId } from './head-tilt.ts'
+import {
+  DEFAULT_LOOK_UP_THRESHOLD_DEG,
+  LOOK_UP_THRESHOLDS_DEG,
+  isLookUpThresholdDeg,
+  type LookUpThresholdDeg,
+} from './look-up-pose.ts'
 
 /** Core interaction types for HUDeck (pure, unit-tested). */
 
 
-export type AppMode = 'idle' | 'recording' | 'chat'
+export type AppMode = 'idle' | 'recording' | 'chat' | 'settings'
 export type Pose = 'neutral' | 'lookUp'
 export type ConfirmTier = 'minimal' | 'compact' | 'detail'
 
@@ -33,6 +45,10 @@ export type AppState = {
   /** Earliest ms when a new confirm may be raised. */
   confirmCooldownUntilMs: number
   recordingStartedAtMs: number | null
+  /** Enter lookUp when pitch ≥ this (persisted by the host). */
+  lookUpThresholdDeg: LookUpThresholdDeg
+  /** Selected deck / settings row while lookUp. */
+  menuIndex: number
 }
 
 export const CONFIRM_TIMEOUT_MS = 12_000
@@ -42,7 +58,11 @@ export const COOLDOWN_AFTER_TIMEOUT_MS = 90_000
 export const MINIMAL_CONFIRM_LABEL = 'REC?'
 export const READY_MARKER = '[hudeck] ready'
 
-export function initialState(nowMs = 0): AppState {
+export function initialState(
+  nowMs = 0,
+  opts?: { lookUpThresholdDeg?: LookUpThresholdDeg },
+): AppState {
+  const threshold = opts?.lookUpThresholdDeg
   return {
     mode: 'idle',
     pose: 'neutral',
@@ -51,6 +71,10 @@ export function initialState(nowMs = 0): AppState {
     suggestArmed: false,
     confirmCooldownUntilMs: 0,
     recordingStartedAtMs: null,
+    lookUpThresholdDeg: isLookUpThresholdDeg(threshold)
+      ? threshold
+      : DEFAULT_LOOK_UP_THRESHOLD_DEG,
+    menuIndex: DECK_MENU_RECORD,
   }
 }
 
@@ -58,10 +82,14 @@ export type AppEvent =
   | { type: 'pose'; pose: Pose }
   | { type: 'conversationDetected' }
   | { type: 'nod' }
+  | { type: 'control'; control: ControlId }
   | { type: 'startRecordingActive' }
   | { type: 'stopRecording' }
   | { type: 'openChat' }
   | { type: 'closeChat' }
+  | { type: 'openSettings' }
+  | { type: 'closeSettings' }
+  | { type: 'setLookUpThreshold'; deg: LookUpThresholdDeg }
   | { type: 'tick'; nowMs: number }
   | { type: 'dismissConfirm' }
 
@@ -147,6 +175,86 @@ function applyPose(state: AppState, pose: Pose, nowMs: number): AppState {
   return next
 }
 
+function wrapIndex(index: number, length: number): number {
+  if (length <= 0) return 0
+  return ((index % length) + length) % length
+}
+
+function applyControl(state: AppState, control: ControlId, nowMs: number): AppState {
+  // Head-tilt controls require lookUp as the base pose (SoT).
+  if (state.pose !== 'lookUp') return state
+
+  if (state.confirm.status === 'pending') {
+    if (control === 'tap') return acceptConfirm(state, nowMs)
+    if (control === 'dbl') return clearConfirm(state, nowMs, COOLDOWN_AFTER_DISMISS_MS)
+    return state
+  }
+
+  if (state.mode === 'settings') {
+    if (control === 'dbl') return { ...state, mode: 'idle' }
+    if (control === 'swipe-up' || control === 'swipe-down') {
+      const cur = LOOK_UP_THRESHOLDS_DEG.indexOf(state.lookUpThresholdDeg)
+      const delta = control === 'swipe-down' ? 1 : -1
+      const next = LOOK_UP_THRESHOLDS_DEG[wrapIndex(cur + delta, LOOK_UP_THRESHOLDS_DEG.length)]!
+      return { ...state, lookUpThresholdDeg: next }
+    }
+    if (control === 'tap') return { ...state, mode: 'idle' }
+    return state
+  }
+
+  if (state.mode === 'chat') {
+    if (control === 'dbl') return { ...state, mode: 'idle' }
+    return state
+  }
+
+  if (state.mode === 'recording') {
+    if (control === 'dbl') {
+      return {
+        ...state,
+        mode: 'idle',
+        suggesting: state.suggestArmed,
+        recordingStartedAtMs: null,
+      }
+    }
+    return state
+  }
+
+  // idle lookUp deck
+  if (control === 'swipe-down' || control === 'swipe-up') {
+    const delta = control === 'swipe-down' ? 1 : -1
+    return {
+      ...state,
+      menuIndex: wrapIndex(state.menuIndex + delta, DECK_MENU_ITEMS.length),
+    }
+  }
+
+  if (control === 'tap') {
+    const selected = state.menuIndex
+    if (selected === DECK_MENU_RECORD) {
+      return {
+        ...state,
+        mode: 'recording',
+        confirm: { status: 'inactive' },
+        suggesting: true,
+        recordingStartedAtMs: nowMs,
+      }
+    }
+    if (selected === DECK_MENU_CHAT) {
+      return { ...state, mode: 'chat', suggesting: false }
+    }
+    if (selected === DECK_MENU_SETTINGS) {
+      return { ...state, mode: 'settings', suggesting: false }
+    }
+  }
+
+  if (control === 'dbl') {
+    // No-op on idle deck (nothing to dismiss).
+    return state
+  }
+
+  return state
+}
+
 /** Injectable clock for reduce() default nowMs (tests). */
 let nowProvider: () => number = () => Date.now()
 
@@ -162,7 +270,10 @@ export function reduce(state: AppState, event: AppEvent, nowMs = nowProvider()):
       return beginConfirm(state, nowMs)
     case 'nod':
       if (state.confirm.status === 'pending') return acceptConfirm(state, nowMs)
-      return state
+      // Phone nod dogfood ≡ tap (tilt-F) while lookUp.
+      return applyControl(state, 'tap', nowMs)
+    case 'control':
+      return applyControl(state, event.control, nowMs)
     case 'startRecordingActive':
       if (state.mode !== 'idle') return state
       return {
@@ -187,6 +298,16 @@ export function reduce(state: AppState, event: AppEvent, nowMs = nowProvider()):
     case 'closeChat':
       if (state.mode !== 'chat') return state
       return { ...state, mode: 'idle' }
+    case 'openSettings':
+      if (state.mode !== 'idle' || state.confirm.status === 'pending') return state
+      if (state.pose !== 'lookUp') return state
+      return { ...state, mode: 'settings', suggesting: false }
+    case 'closeSettings':
+      if (state.mode !== 'settings') return state
+      return { ...state, mode: 'idle' }
+    case 'setLookUpThreshold':
+      if (!isLookUpThresholdDeg(event.deg)) return state
+      return { ...state, lookUpThresholdDeg: event.deg }
     case 'dismissConfirm':
       if (state.confirm.status !== 'pending') return state
       return clearConfirm(state, nowMs, COOLDOWN_AFTER_DISMISS_MS)
@@ -201,7 +322,7 @@ export function reduce(state: AppState, event: AppEvent, nowMs = nowProvider()):
 }
 
 export type GlassesView = {
-  kind: 'blank' | 'deck' | 'confirm' | 'recording' | 'chat'
+  kind: 'blank' | 'deck' | 'confirm' | 'recording' | 'chat' | 'settings'
   title: string
   body: string
   indicator: string | null
@@ -216,7 +337,7 @@ export function deriveGlassesView(state: AppState, nowMs = nowProvider()): Glass
           timeHm: formatClockHm(new Date(nowMs)),
           rightSlot: MINIMAL_CONFIRM_LABEL,
         }),
-        body: formatDeckBody({ selectedIndex: DECK_MENU_RECORD }),
+        body: formatDeckBody({ selectedIndex: state.menuIndex }),
         indicator: MINIMAL_CONFIRM_LABEL,
       }
     }
@@ -224,14 +345,14 @@ export function deriveGlassesView(state: AppState, nowMs = nowProvider()): Glass
       return {
         kind: 'confirm',
         title: MINIMAL_CONFIRM_LABEL,
-        body: 'nod=rec  lookUp=detail',
+        body: 'tap=rec  lookUp=detail',
         indicator: MINIMAL_CONFIRM_LABEL,
       }
     }
     return {
       kind: 'confirm',
       title: 'Record?',
-      body: 'Conversation-like audio\nnod=start  lookDown=dismiss',
+      body: 'Conversation-like audio\ntap=start  lookDown=dismiss',
       indicator: MINIMAL_CONFIRM_LABEL,
     }
   }
@@ -274,6 +395,23 @@ export function deriveGlassesView(state: AppState, nowMs = nowProvider()): Glass
     }
   }
 
+  if (state.mode === 'settings') {
+    if (state.pose === 'neutral') {
+      return {
+        kind: 'settings',
+        title: '',
+        body: '',
+        indicator: 'S',
+      }
+    }
+    return {
+      kind: 'settings',
+      title: formatSettingsTitle(),
+      body: formatSettingsBody(state.lookUpThresholdDeg),
+      indicator: null,
+    }
+  }
+
   // idle
   if (state.pose === 'lookUp') {
     return {
@@ -281,7 +419,7 @@ export function deriveGlassesView(state: AppState, nowMs = nowProvider()): Glass
       title: formatDeckTitle({
         timeHm: formatClockHm(new Date(nowMs)),
       }),
-      body: formatDeckBody({ selectedIndex: DECK_MENU_RECORD }),
+      body: formatDeckBody({ selectedIndex: state.menuIndex }),
       indicator: null,
     }
   }
@@ -310,6 +448,8 @@ export function formatPhoneSummary(state: AppState, view: GlassesView): string {
     `mode:${state.mode} pose:${state.pose}`,
     confirm,
     `suggesting:${state.suggesting ? 'on' : 'off'}`,
+    `lookUp:${state.lookUpThresholdDeg}°`,
+    `menu:${state.menuIndex}`,
     `view:${view.kind}`,
     view.indicator ? `indicator:${view.indicator}` : 'indicator:-',
     view.title ? `title:${view.title}` : '',

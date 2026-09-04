@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config'
+import { debugWsPlugin } from './vite-plugin-debug-ws.ts'
 
 export default defineConfig({
+  plugins: [debugWsPlugin()],
   test: {
     environment: 'node',
   },

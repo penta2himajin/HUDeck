@@ -4,6 +4,7 @@ import {
   GLASSES_W,
   contentWidth,
 } from './glasses-layout.ts'
+import { LOOK_UP_THRESHOLDS_DEG, type LookUpThresholdDeg } from './look-up-pose.ts'
 
 /** Default selected row on the idle lookUp deck (Record). */
 export const DECK_MENU_RECORD = 0
@@ -32,13 +33,14 @@ export function padEndToWidth(text: string, maxPx: number): string {
   return s
 }
 
-/** Full-width rule sized to the content box (omochat / pretext). */
+/** Full-width rule sized to the content box (omochat / pretext).
+ * Uses only ━ (U+2501), which exists in evenroster (advW=20).
+ * Do not top up with ▬ etc. — those glyphs are missing from firmware fonts
+ * (getAdvW=0) so Hub draws a shorter rule than a preview fillRect(maxW).
+ */
 export function buildTitleSeparator(maxWidth: number): string {
   let s = ''
   while (getTextWidth(s + '━') <= maxWidth) s += '━'
-  // ━ is 20px; content width often leaves <20px. Top up with 4px bars so the
-  // rule reaches the content-box right edge (no visible shortfall).
-  while (getTextWidth(s + '▬') <= maxWidth) s += '▬'
   return s
 }
 
@@ -140,4 +142,20 @@ export function formatDeckPacked(
   args: DeckHeaderArgs & DeckBodyArgs,
 ): string {
   return `${formatDeckTitle(args)}\n${formatDeckBody(args)}`
+}
+
+/** Settings title band: label + full-width ━ rule. */
+export function formatSettingsTitle(maxWidth = deckHeaderContentWidth()): string {
+  return `Settings\n${buildTitleSeparator(maxWidth)}`
+}
+
+/** Look-up threshold rows for the settings body. */
+export function formatSettingsBody(thresholdDeg: LookUpThresholdDeg): string {
+  return [
+    'Look-up',
+    ...LOOK_UP_THRESHOLDS_DEG.map((deg) => {
+      const bullet = deg === thresholdDeg ? SELECTED_BULLET : IDLE_BULLET
+      return `${bullet} ${deg}°`
+    }),
+  ].join('\n')
 }
