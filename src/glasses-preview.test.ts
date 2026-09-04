@@ -23,11 +23,11 @@ describe('previewLayout', () => {
 
     expect(layout.width).toBe(GLASSES_W)
     expect(layout.height).toBe(GLASSES_H)
-    // Header + ━ rule share the title band (2 LVGL lines + pad).
-    expect(layout.titleBand.height).toBe(2 * 27 + 2 * 4)
-    expect(layout.bodyBand.y).toBe(layout.titleBand.height)
-    expect(layout.bodyBand.height).toBe(GLASSES_H - layout.titleBand.height)
-    expect(layout.titleText).toBe(chrome.title)
+    // Deck packs into the body band; title container is collapsed.
+    expect(layout.titleBand.height).toBe(1)
+    expect(layout.bodyBand.y).toBe(1)
+    expect(layout.bodyBand.height).toBe(GLASSES_H - 1)
+    expect(layout.titleText.trim()).toBe('')
     expect(layout.bodyText).toBe(chrome.body)
     expect(layout.bodyBorder).toBe(0)
     expect(layout.quiet).toBe(false)
@@ -81,11 +81,12 @@ describe('preview rule + ghost', () => {
         calls.push(`fillRect:${x},${w}`)
       },
     }
-    const band = previewLayout(plannedDeckView()).titleBand
+    const view = plannedDeckView()
+    const layout = previewLayout(view)
     drawBandVector(
       ctx as unknown as CanvasRenderingContext2D,
-      band,
-      plannedDeckView().title,
+      layout.bodyBand,
+      layout.bodyText,
       1,
     )
     const bar = calls.find((c) => c.startsWith('fillRect:'))

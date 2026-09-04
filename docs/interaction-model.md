@@ -75,9 +75,9 @@ HUDeck        | 15:37 |        REC●
 > Settings
 ```
 
-- Header: `HUDeck` left, `| hh:mm |` centered, optional right slot (`REC●` while recording on other views; `REC?` for minimal confirm on this deck).
-- Full-width rule on the **next title line** (no blank between header and rule); menu rows live in the body.
-- Rule fills the title content box to the right edge (`━`, topped up with thin `▬` when needed).
+- Header: `HUDeck` left, `| hh:mm |` with the **`:` on the content midline**, optional right slot (`REC●` / `REC?`).
+- Full-width rule on the next line, then menu rows — all consecutive in one body stream (title band collapsed) so there is no blank between rule and `▶ Record`.
+- Rule fills the content box to the right edge (`━`, topped up with thin `▬` when needed; phone preview draws a bar).
 - No Hub container border/frame on the glance deck or recording lookUp — chrome is text only.
 - Settings row is display-only until a settings flow exists.
 

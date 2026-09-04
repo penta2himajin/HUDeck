@@ -23,12 +23,27 @@ describe('glassesChrome', () => {
     expect(view.title).toMatch(/\|\s*\d{2}:\d{2}\s*\|/)
     const chrome = glassesChrome(view)
     expect(chrome.quiet).toBe(false)
-    expect(chrome.title).toContain('HUDeck')
-    expect(chrome.title.split('\n')[1]?.startsWith('━')).toBe(true)
-    expect(chrome.body).toContain('▶ Record')
-    // Glance deck is text-only (━ rule), no Hub container frame.
+    // Entire deck chrome is one body stream (header / rule / menu) — no blank slots.
+    const lines = chrome.body.split('\n')
+    expect(lines[0]).toContain('HUDeck')
+    expect(lines[1]?.startsWith('━')).toBe(true)
+    expect(lines[2]).toBe('▶ Record')
+    expect(chrome.title.trim()).toBe('')
     expect(chrome.bodyBorder).toBe(0)
     expect(chrome.borderRadius).toBe(0)
+  })
+
+  it('collapses the title band so rule sits directly above Record', () => {
+    let s = initialState(0)
+    s = reduce(s, { type: 'pose', pose: 'lookUp' }, 0)
+    const view = deriveGlassesView(s, 0)
+    const chrome = glassesChrome(view)
+    // Title container is collapsed; all lines live in body with no blank between rule and menu.
+    expect(chrome.title.trim()).toBe('')
+    const lines = chrome.body.split('\n')
+    const ruleIdx = lines.findIndex((l) => l.startsWith('━'))
+    expect(ruleIdx).toBeGreaterThanOrEqual(0)
+    expect(lines[ruleIdx + 1]).toBe('▶ Record')
   })
 
   it('shows REC● indicator without brand frame at recording+neutral', () => {

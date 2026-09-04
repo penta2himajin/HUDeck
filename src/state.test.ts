@@ -112,7 +112,7 @@ describe('chat minimize', () => {
 })
 
 describe('idle lookUp deck', () => {
-  it('shows brand | clock | rule in title with no blank line, menu in body', () => {
+  it('exposes header+rule in title and menu in body (chrome packs them)', () => {
     let s = initialState(0)
     s = reduce(s, { type: 'pose', pose: 'lookUp' }, 0)
     const view = deriveGlassesView(s, Date.UTC(2026, 0, 1, 15, 37))

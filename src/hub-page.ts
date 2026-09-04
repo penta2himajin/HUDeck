@@ -39,10 +39,12 @@ export type GlassesChrome = {
 
 /**
  * Title-band pixel height for Hub + preview.
- * Deck titles carry header + ━ rule (2 lines) with no blank between.
+ * Glance deck collapses the title band and packs chrome into the body.
  */
 export function titleBandHeight(view: GlassesView, chrome: GlassesChrome = glassesChrome(view)): number {
   if (chrome.quiet && view.kind === 'blank') return 1
+  // Deck: header/rule/menu all live in the body stream — no title/body gap.
+  if (view.kind === 'deck') return 1
   const lines = Math.max(1, chrome.title.split('\n').length)
   if (lines >= 2) {
     return lines * GLASSES_LINE_HEIGHT_PX + 2 * GLASSES_PADDING_LENGTH
@@ -83,11 +85,12 @@ export function glassesChrome(view: GlassesView): GlassesChrome {
   }
 
   if (view.kind === 'deck') {
-    // Title carries brand | clock | optional right slot, then ━ rule (no blank).
-    // No Hub container frame — separator is text in the title band.
+    // Pack header + ━ rule + menu into the body so LVGL line slots stay
+    // consecutive (no blank between rule and Record). Title band collapses.
+    const packed = [view.title, view.body].filter((s) => s && s.trim()).join('\n')
     return {
-      title: view.title || 'HUDeck',
-      body: view.body || ' ',
+      title: ' ',
+      body: packed || ' ',
       titleBorder: 0,
       bodyBorder: 0,
       borderRadius: 0,

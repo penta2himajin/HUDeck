@@ -59,29 +59,60 @@ export type DeckHeaderArgs = {
 /**
  * Glance-deck title row:
  * `HUDeck        | 15:37 |        REC●`
- * Time stays visually centered; right slot is right-aligned when present.
+ * The ':' of the clock is anchored to the content-box midline.
  */
 export function formatDeckHeader(args: DeckHeaderArgs): string {
   const brand = args.brand ?? 'HUDeck'
   const maxWidth = args.maxWidth ?? deckHeaderContentWidth()
   const mid = `| ${args.timeHm} |`
   const right = args.rightSlot ?? ''
-  const brandW = getTextWidth(brand)
   const midW = getTextWidth(mid)
   const rightW = right ? getTextWidth(right) : 0
+  const gapW = getTextWidth(' ')
+  const colonW = getTextWidth(':')
+  const target = maxWidth / 2
 
-  let midStart = Math.max(0, Math.floor((maxWidth - midW) / 2))
-  if (midStart < brandW + getTextWidth('  ')) {
-    midStart = brandW + getTextWidth('  ')
-  }
-  const rightStart = right ? Math.max(midStart + midW + getTextWidth(' '), maxWidth - rightW) : maxWidth
+  // Reserve room for an optional right slot; leftover is for brand + clock.
+  const rightReserve = right ? rightW + gapW : 0
+  const maxLeftPlusMid = maxWidth - rightReserve
 
-  let line = padEndToWidth(brand, midStart) + mid
-  if (right) {
-    line = padEndToWidth(line, rightStart) + right
+  // Thin 4px pad (pretext min advance) to refine after 5px spaces.
+  const THIN = '\u2009' // thin space; pretext advance ≈ 4px
+
+  let best = brand + '  ' + mid
+  let bestErr = Number.POSITIVE_INFINITY
+
+  for (let spaces = 2; spaces < 80; spaces++) {
+    for (let thins = 0; thins < 4; thins++) {
+      const pad = ' '.repeat(spaces) + THIN.repeat(thins)
+      const candidate = brand + pad + mid
+      if (getTextWidth(candidate) > maxLeftPlusMid) {
+        if (thins === 0) return finalizeHeader(best, right, maxWidth, rightW)
+        break
+      }
+      const colonAt = candidate.indexOf(':')
+      if (colonAt < 0) continue
+      const colonCenter = getTextWidth(candidate.slice(0, colonAt)) + colonW / 2
+      const err = Math.abs(colonCenter - target)
+      if (err < bestErr) {
+        bestErr = err
+        best = candidate
+        if (err === 0) return finalizeHeader(best, right, maxWidth, rightW)
+      }
+    }
   }
-  // Do not force-pad to maxWidth — trailing spaces are invisible and waste Hub UTF-8 budget.
-  return line
+  return finalizeHeader(best, right, maxWidth, rightW)
+}
+
+function finalizeHeader(
+  line: string,
+  right: string,
+  maxWidth: number,
+  rightW: number,
+): string {
+  if (!right) return line
+  const rightStart = Math.max(getTextWidth(line) + getTextWidth(' '), maxWidth - rightW)
+  return padEndToWidth(line, rightStart) + right
 }
 
 /** Title band: header + full-width rule on consecutive lines (no blank between). */
@@ -95,11 +126,18 @@ export type DeckBodyArgs = {
   maxWidth?: number
 }
 
-/** Menu rows for the idle lookUp deck body (separator lives in the title band). */
+/** Menu rows for the idle lookUp deck body. */
 export function formatDeckBody(args: DeckBodyArgs = {}): string {
   const selected = args.selectedIndex ?? DECK_MENU_RECORD
   return DECK_MENU_ITEMS.map((label, i) => {
     const bullet = i === selected ? SELECTED_BULLET : IDLE_BULLET
     return `${bullet} ${label}`
   }).join('\n')
+}
+
+/** Header + rule + menu as one consecutive block (no blank lines). */
+export function formatDeckPacked(
+  args: DeckHeaderArgs & DeckBodyArgs,
+): string {
+  return `${formatDeckTitle(args)}\n${formatDeckBody(args)}`
 }

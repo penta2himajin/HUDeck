@@ -10,6 +10,7 @@ import {
   formatClockHm,
   formatDeckBody,
   formatDeckHeader,
+  formatDeckPacked,
   formatDeckTitle,
   padEndToWidth,
 } from './deck-chrome.ts'
@@ -36,20 +37,31 @@ describe('deck chrome', () => {
     expect(formatClockHm(new Date(2026, 0, 1, 15, 37))).toBe('15:37')
   })
 
-  it('centers | hh:mm | between brand and optional REC●', () => {
+  it('centers the clock so the colon sits at the content midline', () => {
     const max = deckHeaderContentWidth()
-    const line = formatDeckHeader({ timeHm: '15:37', rightSlot: REC_DOT_LABEL, maxWidth: max })
-    expect(line.startsWith('HUDeck')).toBe(true)
-    expect(line).toContain('| 15:37 |')
-    expect(line.endsWith(REC_DOT_LABEL)).toBe(true)
-    expect(getTextWidth(line)).toBeLessThanOrEqual(max)
+    for (const timeHm of ['15:37', '09:05', '00:00', '22:58', '12:00']) {
+      const line = formatDeckHeader({ timeHm, maxWidth: max })
+      const colonAt = line.indexOf(':')
+      expect(colonAt).toBeGreaterThan(0)
+      const colonCenter =
+        getTextWidth(line.slice(0, colonAt)) + getTextWidth(':') / 2
+      expect(Math.abs(colonCenter - max / 2)).toBeLessThan(1)
+    }
+  })
 
-    const mid = '| 15:37 |'
-    const midAt = line.indexOf(mid)
-    const leftW = getTextWidth(line.slice(0, midAt))
-    const rightW = getTextWidth(line.slice(midAt + mid.length))
-    // Visually centered: leftover left/right of the mid token are similar.
-    expect(Math.abs(leftW - rightW)).toBeLessThan(40)
+  it('keeps colon-centered clock with a right slot', () => {
+    const max = deckHeaderContentWidth()
+    const line = formatDeckHeader({
+      timeHm: '15:37',
+      rightSlot: REC_DOT_LABEL,
+      maxWidth: max,
+    })
+    expect(line.startsWith('HUDeck')).toBe(true)
+    expect(line.endsWith(REC_DOT_LABEL)).toBe(true)
+    const colonAt = line.indexOf(':')
+    const colonCenter =
+      getTextWidth(line.slice(0, colonAt)) + getTextWidth(':') / 2
+    expect(Math.abs(colonCenter - max / 2)).toBeLessThan(1)
   })
 
   it('omits the right slot when not recording', () => {
@@ -58,17 +70,22 @@ describe('deck chrome', () => {
     expect(line).not.toContain('REC')
   })
 
-  it('puts header and rule on consecutive title lines with no blank between', () => {
-    const title = formatDeckTitle({ timeHm: '15:37' })
-    const lines = title.split('\n')
-    expect(lines).toHaveLength(2)
+  it('packs header, rule, and menu as consecutive lines with no blanks', () => {
+    const packed = formatDeckPacked({ timeHm: '15:37' })
+    const lines = packed.split('\n')
     expect(lines[0]).toContain('HUDeck')
     expect(lines[0]).toContain('| 15:37 |')
     expect(lines[1]!.startsWith('━')).toBe(true)
     expect(getTextWidth(lines[1]!)).toBe(deckHeaderContentWidth())
+    expect(lines.slice(2)).toEqual([
+      `${SELECTED_BULLET} ${DECK_MENU_ITEMS[0]}`,
+      `> ${DECK_MENU_ITEMS[1]}`,
+      `> ${DECK_MENU_ITEMS[2]}`,
+    ])
+    expect(lines.every((l) => l.length > 0)).toBe(true)
   })
 
-  it('formats body as menu only (rule lives in the title band)', () => {
+  it('formats body as menu only', () => {
     const body = formatDeckBody({ selectedIndex: DECK_MENU_CHAT })
     expect(body.split('\n')).toEqual([
       `> ${DECK_MENU_ITEMS[0]}`,
