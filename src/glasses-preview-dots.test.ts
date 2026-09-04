@@ -18,9 +18,9 @@ import { GLASSES_LINE_HEIGHT_PX, contentInset, contentWidth } from './glasses-la
 import { FRAME_BORDER_RADIUS } from './hub-page.ts'
 
 describe('smooth greyscale preview', () => {
-  it('uses 20px preview pad and G2 2:1 aspect (official home rhythm)', () => {
+  it('uses 30px preview pad and G2 2:1 aspect', () => {
     expect(DEFAULT_PREVIEW_INTENSITY).toBe(0.55)
-    expect(PREVIEW_PAD_PX).toBe(20)
+    expect(PREVIEW_PAD_PX).toBe(30)
     expect(PREVIEW_ASPECT).toBe(2)
   })
 

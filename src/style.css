@@ -10,8 +10,8 @@
   --radius-sm: 8px;
   --gap: 5px;
   --edge: 5px;
-  /* Official home: ~20px air around the glasses framebuffer (→ ~25px to cards with --gap). */
-  --preview-pad: 20px;
+  /* Preview air around the glasses framebuffer (→ ~35px to cards with --gap). */
+  --preview-pad: 30px;
   --icon-feature: 15px;
   --icon-quick: 15px;
   --icon-bar: 15px;
@@ -80,9 +80,8 @@ body {
 
 .glasses-preview {
   /*
-   * Official home: ~20px pad above/below the framebuffer; side inset matches that
-   * pad so width follows height via 576×288 (2:1). Shell --gap (5px) then makes
-   * preview→cards ≈ 25px.
+   * 30px pad around the framebuffer; side inset matches so width follows height
+   * via 576×288 (2:1). Shell --gap (5px) then makes preview→cards ≈ 35px.
    */
   margin: var(--preview-pad);
   width: auto;
