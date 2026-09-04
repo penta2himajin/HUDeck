@@ -36,6 +36,13 @@ describe('fixed gesture ↔ control map', () => {
   })
 })
 
+describe('hold sensitivity defaults', () => {
+  it('uses enter 0.20 and dwell 100ms', () => {
+    expect(LOOKUP_HOLD_ENTER).toBe(0.2)
+    expect(LOOKUP_REACH_MS).toBe(100)
+  })
+})
+
 describe('holdFromLookUpOffset', () => {
   it('classifies pitch/roll vs lookUp baseline', () => {
     expect(holdFromLookUpOffset({ x: -LOOKUP_HOLD_ENTER, y: 0, z: 0 })).toBe(

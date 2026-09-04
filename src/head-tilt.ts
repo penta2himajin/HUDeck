@@ -46,9 +46,9 @@ export const FIXED_CONTROL_TO_TILT = FIXED_CONTROL_TO_GESTURE
 /** |offset| below this ⇒ still on the lookUp baseline (accel). */
 export const LOOKUP_NEUTRAL_BAND = 0.12
 /** |offset| above this ⇒ candidate hold pose vs lookUp baseline. */
-export const LOOKUP_HOLD_ENTER = 0.26
+export const LOOKUP_HOLD_ENTER = 0.2
 /** Dwell in a reach zone before emitting a hold control. */
-export const LOOKUP_REACH_MS = 200
+export const LOOKUP_REACH_MS = 100
 /** Ignore further fires briefly after a control. */
 export const LOOKUP_EXEC_COOLDOWN_MS = 150
 

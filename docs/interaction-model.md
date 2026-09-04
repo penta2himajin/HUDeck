@@ -127,6 +127,7 @@ Aligned with `even-head-tilt-control`. Fixed bindings (not user-editable yet):
 | `swipe-down` | `tilt-R` | Hold roll +y |
 
 - **Base pose must be `lookUp`.** Flat neutral does not arm tilt controls. On enter lookUp, gravity is snapped as the gesture baseline; leaving lookUp disarms.
+- Hold enter threshold **0.20** (accel offset), dwell **100ms** before emitting dbl / swipe-*.
 - **Exit band is wide (threshold − 10°)** so nod dips and roll holds do not blank the deck.
 - Temple while lookUp: `CLICK`→tap, `DOUBLE_CLICK`→dbl, `SCROLL_TOP`→swipe-up, `SCROLL_BOTTOM`→swipe-down.
 - Deck: swipe moves `menuIndex`; tap activates (Record / Chat / Settings); dbl is reserved for dismiss in nested modes / pending confirm.
