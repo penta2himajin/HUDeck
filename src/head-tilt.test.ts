@@ -6,6 +6,7 @@ import {
   LOOKUP_REACH_MS,
   LookUpTiltSession,
   NOD_DIP_DEG,
+  NOD_ROLL_MAX_DEG,
   holdFromLookUpOffset,
 } from './head-tilt.ts'
 import { gravityAtPitchDeg } from './mock-imu.ts'
@@ -68,7 +69,7 @@ describe('LookUpTiltSession nod→tap', () => {
     expect(s.push({ ...atPitch(basePitch, -8), t: 0 })).toBeNull()
   })
 
-  it('fires tap on lookUp → dip ≥ −5° → return (nod)', () => {
+  it('fires tap on lookUp → dip ≥ −5° → return (nod) with near-neutral roll', () => {
     const s = new LookUpTiltSession()
     const base = atPitch(basePitch)
     s.arm({ ...base, t: 0 })
@@ -86,6 +87,53 @@ describe('LookUpTiltSession nod→tap', () => {
     s.arm({ ...base, t: 0 })
     s.push({ ...atPitch(basePitch, -3), t: 20 })
     expect(s.push({ ...base, t: 40 })).toBeNull()
+  })
+
+  it('does not start nod when |Δroll| exceeds NOD_ROLL_MAX_DEG (tilt-L/R wins)', () => {
+    expect(NOD_ROLL_MAX_DEG).toBeLessThan(12)
+    const s = new LookUpTiltSession()
+    const base = atPitch(basePitch)
+    s.arm({ ...base, t: 0 })
+    // Pitch dip with large roll → not a nod; hold path may reach instead.
+    expect(
+      s.push({
+        ...atPitch(basePitch, -(NOD_DIP_DEG + 2), NOD_ROLL_MAX_DEG + 4),
+        t: 20,
+      }),
+    ).toBeNull()
+    expect(s.status().nodActive).toBe(false)
+    // Return with roll still large must not fire tap.
+    expect(
+      s.push({ ...atPitch(basePitch, 0, NOD_ROLL_MAX_DEG + 4), t: 40 }),
+    ).not.toBe('tap')
+  })
+
+  it('cancels an unfinished nod when roll leaves the nod window', () => {
+    const s = new LookUpTiltSession()
+    const base = atPitch(basePitch)
+    s.arm({ ...base, t: 0 })
+    s.push({ ...atPitch(basePitch, -(NOD_DIP_DEG + 2)), t: 20 })
+    expect(s.status().nodActive).toBe(true)
+    s.push({
+      ...atPitch(basePitch, -(NOD_DIP_DEG + 2), NOD_ROLL_MAX_DEG + 5),
+      t: 40,
+    })
+    expect(s.status().nodActive).toBe(false)
+    expect(s.push({ ...base, t: 60 })).toBeNull()
+  })
+
+  it('does not cancel tilt-L/R reach when pitch wobbles during a roll hold', () => {
+    const s = new LookUpTiltSession()
+    s.arm({ x: 0.35, y: 0, z: 0.94, t: 0 })
+    s.push({ x: 0.35, y: 0.35, z: 0.94, t: 10 })
+    expect(s.status().reaching).toBe('tilt-R')
+    // Pitch drops a bit while roll stays in hold — must not clear reach via nod.
+    s.push({ x: 0.28, y: 0.35, z: 0.94, t: 50 })
+    expect(s.status().nodActive).toBe(false)
+    expect(s.status().reaching).toBe('tilt-R')
+    expect(s.push({ x: 0.35, y: 0.35, z: 0.94, t: 10 + LOOKUP_REACH_MS })).toBe(
+      'swipe-down',
+    )
   })
 
   it('does not fire tap on tilt-F hold dwell (nod required)', () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_LOOK_UP_THRESHOLD_DEG,
+  LOOK_UP_EXIT_ROLL_GUARD_DEG,
   LOOK_UP_THRESHOLDS_DEG,
   pitchDegreesFromGravity,
   resolveLookUpPose,
@@ -104,10 +105,11 @@ describe('resolveLookUpPose', () => {
   })
 
   it('uses hysteresis so leaving lookUp requires dropping below threshold − 10°', () => {
-    // 15° enter → exit below 5°
+    // 15° enter → exit below 5° (roll near zero)
     expect(
       resolveLookUpPose({
         pitchDeg: 5.1,
+        rollDeg: 0,
         thresholdDeg: 15,
         previous: 'lookUp',
       }),
@@ -115,6 +117,7 @@ describe('resolveLookUpPose', () => {
     expect(
       resolveLookUpPose({
         pitchDeg: 4.9,
+        rollDeg: 0,
         thresholdDeg: 15,
         previous: 'lookUp',
       }),
@@ -123,6 +126,7 @@ describe('resolveLookUpPose', () => {
     expect(
       resolveLookUpPose({
         pitchDeg: 10.1,
+        rollDeg: 0,
         thresholdDeg: 20,
         previous: 'lookUp',
       }),
@@ -130,6 +134,37 @@ describe('resolveLookUpPose', () => {
     expect(
       resolveLookUpPose({
         pitchDeg: 9.9,
+        rollDeg: 0,
+        thresholdDeg: 20,
+        previous: 'lookUp',
+      }),
+    ).toBe('neutral')
+  })
+
+  it('keeps lookUp when pitch is below exit but |roll| ≥ guard (side tilt in progress)', () => {
+    expect(LOOK_UP_EXIT_ROLL_GUARD_DEG).toBe(8)
+    // Would exit on pitch alone (9.9 < 10), but roll is in a L/R hold.
+    expect(
+      resolveLookUpPose({
+        pitchDeg: 9.9,
+        rollDeg: -LOOK_UP_EXIT_ROLL_GUARD_DEG,
+        thresholdDeg: 20,
+        previous: 'lookUp',
+      }),
+    ).toBe('lookUp')
+    expect(
+      resolveLookUpPose({
+        pitchDeg: 4,
+        rollDeg: 16,
+        thresholdDeg: 20,
+        previous: 'lookUp',
+      }),
+    ).toBe('lookUp')
+    // Roll just under the guard → pitch exit wins.
+    expect(
+      resolveLookUpPose({
+        pitchDeg: 9.9,
+        rollDeg: LOOK_UP_EXIT_ROLL_GUARD_DEG - 0.1,
         thresholdDeg: 20,
         previous: 'lookUp',
       }),

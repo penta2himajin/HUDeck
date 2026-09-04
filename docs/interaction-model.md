@@ -109,7 +109,7 @@ Look-up
 - Pitch: `atan2(x, z)` in degrees; **positive = look up** (head back / +x), rest ≈ +z.
 - Roll: `atan2(y, z)` in degrees; **positive = tilt-R** (+y), **negative = tilt-L** (−y). Phone debug shows both `pitch` and `roll`.
 - Threshold lives in app state (`lookUpThresholdDeg`); Settings UI and phone quick buttons both write it.
-- Hysteresis: leave `lookUp` when pitch &lt; threshold − **10°** (15° enter keeps the deck through ~5°; 20° enter through ~10°).
+- Hysteresis: leave `lookUp` when pitch &lt; threshold − **10°** (15° enter keeps the deck through ~5°; 20° enter through ~10°), **and** `|roll|` &lt; **8°** (roll guard). If pitch is below the exit band but `|roll| ≥ 8°`, stay in lookUp so side tilts do not blank the deck.
 - After the first IMU sample, **temple click does not toggle pose** (avoids blank flicker vs continuous pitch). While lookUp, temple maps to the same controls as head tilt (below).
 - Phone buttons remain manual overrides for deskless dogfood.
 - Simulator has no IMU: use `?mockImu=1` or phone `mock↑` / `mock→` buttons; temple toggle stays available until IMU is seen.
@@ -121,14 +121,15 @@ Aligned with `even-head-tilt-control`. Fixed bindings (not user-editable yet):
 
 | Control | Gesture | Detection vs lookUp baseline |
 |---|---|---|
-| `tap` | `nod` | Pitch dip ≥ **−5°** then return to lookUp (oscillate; not a tilt-F hold) |
+| `tap` | `nod` | `|Δroll| ≤ 8°` **and** pitch dip ≥ **−5°** then return to lookUp (oscillate; not a tilt-F hold) |
 | `dbl` | `tilt-B` | Hold further back (+x) |
 | `swipe-up` | `tilt-L` | Hold roll −y |
 | `swipe-down` | `tilt-R` | Hold roll +y |
 
 - **Base pose must be `lookUp`.** Flat neutral does not arm tilt controls. On enter lookUp, gravity is snapped as the gesture baseline; leaving lookUp disarms.
 - Hold enter threshold **0.20** (accel offset), dwell **100ms** before emitting dbl / swipe-*.
-- **Exit band is wide (threshold − 10°)** so nod dips and roll holds do not blank the deck.
+- **Nod roll window (8°)** is buffered under tilt-L/R enter (~11.5° from 0.20 accel) so pitch wobble during a side hold never steals the gesture as tap.
+- **Exit band is wide (threshold − 10°) plus roll guard (8°)** so nod dips and roll holds do not blank the deck.
 - **Dev debug-ws:** Vite serves `ws://…/__debug_ws`; phone streams IMU / tilt / control JSON to `/tmp/hudeck-debug.log` (override with `HUDECK_DEBUG_LOG`). Tail while dogfooding: `tail -f /tmp/hudeck-debug.log`. Production builds disable the client.
 - Temple while lookUp: `CLICK`→tap, `DOUBLE_CLICK`→dbl, `SCROLL_TOP`→swipe-up, `SCROLL_BOTTOM`→swipe-down.
 - Deck: swipe moves `menuIndex`; tap activates (Record / Chat / Settings); dbl is reserved for dismiss in nested modes / pending confirm.

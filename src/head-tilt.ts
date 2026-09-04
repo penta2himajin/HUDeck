@@ -1,7 +1,7 @@
 /**
  * Head-tilt controls aligned with even-head-tilt-control.
  * Fixed bindings (not user-editable yet):
- *   tap ← nod (lookUp baseline → pitch dip ≥ −5° → return)
+ *   tap ← nod (near-neutral roll + pitch dip ≥ −5° → return)
  *   dbl ← tilt-B hold
  *   swipe-up ← tilt-L hold
  *   swipe-down ← tilt-R hold
@@ -59,6 +59,11 @@ export const LOOKUP_EXEC_COOLDOWN_MS = 150
 export const NOD_DIP_DEG = 5
 /** |Δpitch| within this of baseline counts as “back at lookUp” for nod return. */
 export const NOD_RETURN_DEG = 2
+/**
+ * Nod only while |Δroll| from lookUp baseline is within this window.
+ * Buffer under tilt-L/R enter (~asin(0.20) ≈ 11.5°) so side holds never count as nod.
+ */
+export const NOD_ROLL_MAX_DEG = 8
 /** Cancel an unfinished nod if no return within this window. */
 export const NOD_MAX_MS = 1500
 
@@ -128,13 +133,14 @@ export type LookUpTiltStatus = {
 
 /**
  * Session that arms only while lookUp. Baseline snaps on arm().
- * - nod (pitch dip ≥ NOD_DIP_DEG then return) → tap
+ * - nod (|Δroll| ≤ NOD_ROLL_MAX_DEG + pitch dip ≥ NOD_DIP_DEG then return) → tap
  * - tilt-B / L / R dwell → dbl / swipe-up / swipe-down
  * - tilt-F hold alone does not fire (use nod for tap)
  */
 export class LookUpTiltSession {
   private baseline: Vec3 | null = null
   private baselinePitchDeg = 0
+  private baselineRollDeg = 0
   private armed = false
   private held: HoldControlGesture | null = null
   private reachGesture: HoldControlGesture | null = null
@@ -149,6 +155,7 @@ export class LookUpTiltSession {
     this.armed = true
     this.baseline = { x: sample.x, y: sample.y, z: sample.z }
     this.baselinePitchDeg = pitchDegreesFromGravity(sample)
+    this.baselineRollDeg = rollDegreesFromGravity(sample)
     this.held = null
     this.reachGesture = null
     this.reachSince = null
@@ -184,10 +191,12 @@ export class LookUpTiltSession {
     const out: Record<string, unknown> = {
       ...st,
       baselinePitchDeg: this.baseline ? this.baselinePitchDeg : null,
+      baselineRollDeg: this.baseline ? this.baselineRollDeg : null,
       holdEnter: LOOKUP_HOLD_ENTER,
       reachMs: LOOKUP_REACH_MS,
       nodDipDeg: NOD_DIP_DEG,
       nodReturnDeg: NOD_RETURN_DEG,
+      nodRollMaxDeg: NOD_ROLL_MAX_DEG,
     }
     if (sample && this.baseline) {
       const g = { x: sample.x, y: sample.y, z: sample.z }
@@ -200,6 +209,7 @@ export class LookUpTiltSession {
       out.pitchDeg = pitchDeg
       out.rollDeg = rollDeg
       out.deltaPitchDeg = pitchDeg - this.baselinePitchDeg
+      out.deltaRollDeg = rollDeg - this.baselineRollDeg
       out.holdZone = holdFromLookUpOffset(offset)
     }
     return out
@@ -229,18 +239,19 @@ export class LookUpTiltSession {
     const pitchDeg = pitchDegreesFromGravity(g)
     const rollDeg = rollDegreesFromGravity(g)
     const deltaPitch = pitchDeg - this.baselinePitchDeg
+    const deltaRoll = rollDeg - this.baselineRollDeg
     const mag = absMax(offset)
+    const rollNearNeutral = Math.abs(deltaRoll) <= NOD_ROLL_MAX_DEG
 
-    // --- Nod path (tap): forward pitch dip then return to lookUp baseline ---
-    const rollAbs = Math.abs(rollDeg - rollDegreesFromGravity(this.baseline))
-    const pitchDominates =
-      Math.abs(deltaPitch) >= rollAbs || Math.abs(deltaPitch) >= NOD_DIP_DEG
-
+    // --- Nod path (tap): near-neutral roll + pitch dip then return ---
     if (this.nodActive && this.nodStartedAt != null && now - this.nodStartedAt > NOD_MAX_MS) {
       this.clearNod()
     }
 
-    if (pitchDominates && deltaPitch <= -NOD_RETURN_DEG) {
+    if (!rollNearNeutral) {
+      // Side tilt wins — do not steal hold reach with a partial nod.
+      if (this.nodActive) this.clearNod()
+    } else if (deltaPitch <= -NOD_RETURN_DEG) {
       // Chin-forward relative to lookUp: track nod peak.
       if (!this.nodActive) {
         this.nodActive = true
@@ -249,7 +260,7 @@ export class LookUpTiltSession {
       } else if (deltaPitch < this.nodPeakDipDeg) {
         this.nodPeakDipDeg = deltaPitch
       }
-      // Cancel hold reach while nodding forward.
+      // Cancel hold reach only while a genuine (low-roll) nod is in progress.
       this.reachGesture = null
       this.reachSince = null
     } else if (this.nodActive && Math.abs(deltaPitch) <= NOD_RETURN_DEG) {

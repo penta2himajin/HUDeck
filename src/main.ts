@@ -17,6 +17,7 @@ import {
   LOOKUP_REACH_MS,
   LookUpTiltSession,
   NOD_DIP_DEG,
+  NOD_ROLL_MAX_DEG,
   type ControlId,
 } from './head-tilt.ts'
 import { parseAccelSample, type AccelSample } from './imu-parse.ts'
@@ -27,6 +28,7 @@ import {
 } from './debug-telemetry.ts'
 import {
   DEFAULT_LOOK_UP_THRESHOLD_DEG,
+  LOOK_UP_EXIT_ROLL_GUARD_DEG,
   isLookUpThresholdDeg,
   pitchDegreesFromGravity,
   resolveLookUpPose,
@@ -101,6 +103,8 @@ async function main() {
     holdEnter: LOOKUP_HOLD_ENTER,
     reachMs: LOOKUP_REACH_MS,
     nodDipDeg: NOD_DIP_DEG,
+    nodRollMaxDeg: NOD_ROLL_MAX_DEG,
+    exitRollGuardDeg: LOOK_UP_EXIT_ROLL_GUARD_DEG,
   })
 
   const root = document.querySelector('#app')
@@ -237,6 +241,7 @@ async function main() {
     poseSource = 'imu'
     const nextPose = resolveLookUpPose({
       pitchDeg,
+      rollDeg,
       thresholdDeg: state.lookUpThresholdDeg,
       previous: state.pose,
     })
@@ -300,6 +305,7 @@ async function main() {
         // Re-resolve pose with the new threshold using last pitch.
         const nextPose = resolveLookUpPose({
           pitchDeg,
+          rollDeg: rollDeg ?? 0,
           thresholdDeg: deg,
           previous: state.pose,
         })
