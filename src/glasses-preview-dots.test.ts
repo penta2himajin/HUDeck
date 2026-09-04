@@ -37,9 +37,11 @@ describe('smooth greyscale preview', () => {
     expect(v.kind).toBe('deck')
     expect(v.title).toContain('HUDeck')
     expect(v.title).toContain('| 12:00 |')
+    expect(v.title.split('\n')[1]?.startsWith('━')).toBe(true)
     expect(v.body).toContain('▶ Record')
     expect(v.body).toContain('> Chat')
     expect(v.body).toContain('> Settings')
+    expect(v.body).not.toContain('━')
   })
 
   it('preview fill matches the phone page background (not pure white)', () => {

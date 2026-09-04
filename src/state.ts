@@ -3,7 +3,7 @@ import {
   REC_DOT_LABEL,
   formatClockHm,
   formatDeckBody,
-  formatDeckHeader,
+  formatDeckTitle,
 } from './deck-chrome.ts'
 
 /** Core interaction types for HUDeck (pure, unit-tested). */
@@ -212,7 +212,7 @@ export function deriveGlassesView(state: AppState, nowMs = nowProvider()): Glass
     if (state.confirm.tier === 'minimal') {
       return {
         kind: 'deck',
-        title: formatDeckHeader({
+        title: formatDeckTitle({
           timeHm: formatClockHm(new Date(nowMs)),
           rightSlot: MINIMAL_CONFIRM_LABEL,
         }),
@@ -278,7 +278,7 @@ export function deriveGlassesView(state: AppState, nowMs = nowProvider()): Glass
   if (state.pose === 'lookUp') {
     return {
       kind: 'deck',
-      title: formatDeckHeader({
+      title: formatDeckTitle({
         timeHm: formatClockHm(new Date(nowMs)),
       }),
       body: formatDeckBody({ selectedIndex: DECK_MENU_RECORD }),

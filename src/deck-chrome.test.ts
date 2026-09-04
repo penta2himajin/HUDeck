@@ -6,11 +6,11 @@ import {
   REC_DOT_LABEL,
   SELECTED_BULLET,
   buildTitleSeparator,
-  deckBodyContentWidth,
   deckHeaderContentWidth,
   formatClockHm,
   formatDeckBody,
   formatDeckHeader,
+  formatDeckTitle,
   padEndToWidth,
 } from './deck-chrome.ts'
 
@@ -22,11 +22,12 @@ describe('deck chrome', () => {
   })
 
   it('builds a single-line full-width title rule', () => {
-    const max = deckBodyContentWidth()
+    const max = deckHeaderContentWidth()
     const rule = buildTitleSeparator(max)
     expect(rule.length).toBeGreaterThan(10)
-    expect(rule.replaceAll('━', '')).toBe('')
-    expect(getTextWidth(rule)).toBeLessThanOrEqual(max)
+    // Must reach the content-box right edge (no leftover gap shorter than a ━).
+    expect(getTextWidth(rule)).toBe(max)
+    expect(rule.startsWith('━')).toBe(true)
     expect(getTextWidth(rule + '━')).toBeGreaterThan(max)
   })
 
@@ -57,14 +58,23 @@ describe('deck chrome', () => {
     expect(line).not.toContain('REC')
   })
 
-  it('formats body as rule + Record/Chat/Settings with ▶ on selection', () => {
+  it('puts header and rule on consecutive title lines with no blank between', () => {
+    const title = formatDeckTitle({ timeHm: '15:37' })
+    const lines = title.split('\n')
+    expect(lines).toHaveLength(2)
+    expect(lines[0]).toContain('HUDeck')
+    expect(lines[0]).toContain('| 15:37 |')
+    expect(lines[1]!.startsWith('━')).toBe(true)
+    expect(getTextWidth(lines[1]!)).toBe(deckHeaderContentWidth())
+  })
+
+  it('formats body as menu only (rule lives in the title band)', () => {
     const body = formatDeckBody({ selectedIndex: DECK_MENU_CHAT })
-    const lines = body.split('\n')
-    expect(lines[0]).toMatch(/^━+$/)
-    expect(lines.slice(1)).toEqual([
+    expect(body.split('\n')).toEqual([
       `> ${DECK_MENU_ITEMS[0]}`,
       `${SELECTED_BULLET} ${DECK_MENU_ITEMS[1]}`,
       `> ${DECK_MENU_ITEMS[2]}`,
     ])
+    expect(body).not.toContain('━')
   })
 })

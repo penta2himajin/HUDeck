@@ -76,8 +76,9 @@ HUDeck        | 15:37 |        REC●
 ```
 
 - Header: `HUDeck` left, `| hh:mm |` centered, optional right slot (`REC●` while recording on other views; `REC?` for minimal confirm on this deck).
-- Full-width `━` separator (omochat-style), then three rows; default selection `▶ Record`.
-- No Hub container border/frame on the glance deck — chrome is text only.
+- Full-width rule on the **next title line** (no blank between header and rule); menu rows live in the body.
+- Rule fills the title content box to the right edge (`━`, topped up with thin `▬` when needed).
+- No Hub container border/frame on the glance deck or recording lookUp — chrome is text only.
 - Settings row is display-only until a settings flow exists.
 
 ## Look-up sensing (IMU)

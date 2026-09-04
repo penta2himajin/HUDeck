@@ -24,15 +24,6 @@ export function deckHeaderContentWidth(
   return contentWidth(canvasWidth, 0, padding)
 }
 
-/** Body content width (border 0, pad 4) — matches frameless hub-page deck body. */
-export function deckBodyContentWidth(
-  canvasWidth = GLASSES_W,
-  padding = GLASSES_PADDING_LENGTH,
-  border = 0,
-): number {
-  return contentWidth(canvasWidth, border, padding)
-}
-
 /** Append spaces until the next space would exceed `maxPx` (pretext metrics). */
 export function padEndToWidth(text: string, maxPx: number): string {
   let s = text
@@ -45,6 +36,9 @@ export function padEndToWidth(text: string, maxPx: number): string {
 export function buildTitleSeparator(maxWidth: number): string {
   let s = ''
   while (getTextWidth(s + '━') <= maxWidth) s += '━'
+  // ━ is 20px; content width often leaves <20px. Top up with 4px bars so the
+  // rule reaches the content-box right edge (no visible shortfall).
+  while (getTextWidth(s + '▬') <= maxWidth) s += '▬'
   return s
 }
 
@@ -90,19 +84,22 @@ export function formatDeckHeader(args: DeckHeaderArgs): string {
   return line
 }
 
+/** Title band: header + full-width rule on consecutive lines (no blank between). */
+export function formatDeckTitle(args: DeckHeaderArgs): string {
+  const maxWidth = args.maxWidth ?? deckHeaderContentWidth()
+  return `${formatDeckHeader({ ...args, maxWidth })}\n${buildTitleSeparator(maxWidth)}`
+}
+
 export type DeckBodyArgs = {
   selectedIndex?: number
   maxWidth?: number
 }
 
-/** Separator + menu rows for the idle lookUp deck body. */
+/** Menu rows for the idle lookUp deck body (separator lives in the title band). */
 export function formatDeckBody(args: DeckBodyArgs = {}): string {
-  const maxWidth = args.maxWidth ?? deckBodyContentWidth()
   const selected = args.selectedIndex ?? DECK_MENU_RECORD
-  const rule = buildTitleSeparator(maxWidth)
-  const menu = DECK_MENU_ITEMS.map((label, i) => {
+  return DECK_MENU_ITEMS.map((label, i) => {
     const bullet = i === selected ? SELECTED_BULLET : IDLE_BULLET
     return `${bullet} ${label}`
-  })
-  return [rule, ...menu].join('\n')
+  }).join('\n')
 }

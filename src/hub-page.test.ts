@@ -24,6 +24,7 @@ describe('glassesChrome', () => {
     const chrome = glassesChrome(view)
     expect(chrome.quiet).toBe(false)
     expect(chrome.title).toContain('HUDeck')
+    expect(chrome.title.split('\n')[1]?.startsWith('━')).toBe(true)
     expect(chrome.body).toContain('▶ Record')
     // Glance deck is text-only (━ rule), no Hub container frame.
     expect(chrome.bodyBorder).toBe(0)
@@ -39,5 +40,18 @@ describe('glassesChrome', () => {
     expect(chrome.title).toBe('REC●')
     expect(chrome.bodyBorder).toBe(0)
     expect(chrome.title).not.toContain('HUDeck')
+  })
+
+  it('keeps recording lookUp frameless (no Hub body border)', () => {
+    let s = initialState(0)
+    s = reduce(s, { type: 'startRecordingActive' }, 1000)
+    s = reduce(s, { type: 'pose', pose: 'lookUp' }, 1000)
+    const view = deriveGlassesView(s, 5000)
+    expect(view.kind).toBe('recording')
+    expect(view.title).toContain('REC●')
+    const chrome = glassesChrome(view)
+    expect(chrome.bodyBorder).toBe(0)
+    expect(chrome.borderRadius).toBe(0)
+    expect(chrome.quiet).toBe(false)
   })
 })

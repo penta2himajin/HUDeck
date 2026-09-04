@@ -112,20 +112,18 @@ describe('chat minimize', () => {
 })
 
 describe('idle lookUp deck', () => {
-  it('shows brand | clock | menu without suggest-armed line', () => {
+  it('shows brand | clock | rule in title with no blank line, menu in body', () => {
     let s = initialState(0)
     s = reduce(s, { type: 'pose', pose: 'lookUp' }, 0)
     const view = deriveGlassesView(s, Date.UTC(2026, 0, 1, 15, 37))
     expect(view.kind).toBe('deck')
-    expect(view.title).toContain('HUDeck')
-    expect(view.title).toMatch(/\|\s*\d{2}:\d{2}\s*\|/)
-    expect(view.title).not.toContain('REC')
-    expect(view.body.split('\n')).toEqual([
-      expect.stringMatching(/^━+$/),
-      '▶ Record',
-      '> Chat',
-      '> Settings',
-    ])
+    const titleLines = view.title.split('\n')
+    expect(titleLines).toHaveLength(2)
+    expect(titleLines[0]).toContain('HUDeck')
+    expect(titleLines[0]).toMatch(/\|\s*\d{2}:\d{2}\s*\|/)
+    expect(titleLines[0]).not.toContain('REC')
+    expect(titleLines[1]!.startsWith('━')).toBe(true)
+    expect(view.body.split('\n')).toEqual(['▶ Record', '> Chat', '> Settings'])
     expect(view.body).not.toContain('suggest')
     expect(view.indicator).toBeNull()
   })
