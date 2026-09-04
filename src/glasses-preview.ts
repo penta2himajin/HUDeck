@@ -7,15 +7,18 @@ export { GLASSES_H, GLASSES_W }
 export const TITLE_BAND_H = 36
 
 /**
- * G2 is dual 576×288 monochrome green micro-LED
+ * G2: dual 576×288 monochrome green micro-LED
  * (@see https://hub.evenrealities.com/docs/reference/glossary#hardware).
- * Even Hub's phone mirror paints that matrix as dark dots on the light
- * companion background — not a solid black panel.
+ * Official simulator screenshots are a 576×288 RGBA framebuffer; `--glow` is
+ * phone/simulator post-process only. Even Hub's companion mirror paints that
+ * matrix as clean LED dots on the light app background (not a black panel).
  */
-export const DOT_PITCH = 2
+export const DOT_PITCH = 3
+/** Supersample before max-pool so strokes stay solid (AA text → muddy dots). */
+export const RASTER_SCALE = 3
 export const PREVIEW_BG = '#f0f0f0'
-export const DOT_ACTIVE = '#1a1a1a'
-export const DOT_GHOST = '#c8c8c8'
+export const DOT_ACTIVE = '#1c1c1c'
+export const DOT_GHOST = '#bdbdbd'
 
 export type PreviewBand = {
   x: number
@@ -26,11 +29,6 @@ export type PreviewBand = {
   padding: number
 }
 
-/**
- * Geometry + copy for the companion glasses preview.
- * Mirrors `hub-page` TextContainer layout so browser dogfood matches device chrome
- * until Glyph owns the framebuffer path.
- */
 export type GlassesPreviewLayout = {
   width: number
   height: number
@@ -109,8 +107,8 @@ export function sampleDotsFromCoverage(args: {
     active,
     ghost,
     pitch,
-    activeThreshold = 0.35,
-    ghostThreshold = 0.18,
+    activeThreshold = 0.45,
+    ghostThreshold = 0.45,
   } = args
   const dots: DotSample[] = []
   for (let y = 0; y < height; y += pitch) {
@@ -140,39 +138,55 @@ function drawBandVector(
   band: PreviewBand,
   content: string,
   fontPx: number,
+  scale: number,
 ) {
   if (band.height <= 1 || band.width <= 1) return
+  const s = scale
+  const x0 = band.x * s
+  const y0 = band.y * s
+  const w = band.width * s
+  const h = band.height * s
+  const pad = band.padding * s
+
   if (band.borderWidth > 0) {
     ctx.strokeStyle = '#fff'
-    ctx.lineWidth = Math.max(1, band.borderWidth)
-    ctx.strokeRect(band.x + 0.5, band.y + 0.5, band.width - 1, band.height - 1)
+    ctx.lineWidth = Math.max(s, band.borderWidth * s)
+    ctx.strokeRect(x0 + s / 2, y0 + s / 2, w - s, h - s)
   }
+
   const lines = content.replace(/\r/g, '').split('\n')
+  const fp = fontPx * s
   ctx.fillStyle = '#fff'
-  ctx.font = `700 ${fontPx}px ui-monospace, "Cascadia Mono", "SF Mono", monospace`
+  ctx.font = `800 ${fp}px ui-monospace, "Cascadia Mono", "SF Mono", monospace`
   ctx.textBaseline = 'top'
   ctx.textAlign = 'left'
-  const x = band.x + band.padding + 2
-  let y = band.y + band.padding + 2
-  const lineH = fontPx + 6
+  const x = x0 + pad + s
+  let y = y0 + pad + s
+  const lineH = fp + 6 * s
   for (const line of lines) {
     if (line.length === 0 && lines.length === 1) continue
     ctx.fillText(line, x, y)
     y += lineH
-    if (y > band.y + band.height - band.padding) break
+    if (y > y0 + h - pad) break
   }
 }
 
-/** Rasterize layout to 0..1 coverage (white ink on black). */
+/**
+ * Rasterize layout to binary-ish 0..1 coverage via supersample + max-pool.
+ * Max-pool keeps strokes solid; averaging AA fonts yields muddy LED dots.
+ */
 export function rasterizeLayoutCoverage(
   layout: GlassesPreviewLayout,
   canvasFactory: () => HTMLCanvasElement | OffscreenCanvas = () =>
     document.createElement('canvas'),
+  scale = RASTER_SCALE,
 ): Float32Array {
   const { width: w, height: h } = layout
+  const sw = w * scale
+  const sh = h * scale
   const surface = canvasFactory()
-  surface.width = w
-  surface.height = h
+  surface.width = sw
+  surface.height = sh
   const ctx = (
     'getContext' in surface
       ? surface.getContext('2d', { willReadFrequently: true })
@@ -182,15 +196,25 @@ export function rasterizeLayoutCoverage(
   if (!ctx) return out
 
   ctx.fillStyle = '#000'
-  ctx.fillRect(0, 0, w, h)
+  ctx.fillRect(0, 0, sw, sh)
   if (!(layout.quiet && layout.titleBand.height <= 1)) {
-    drawBandVector(ctx as CanvasRenderingContext2D, layout.titleBand, layout.titleText, 18)
-    drawBandVector(ctx as CanvasRenderingContext2D, layout.bodyBand, layout.bodyText, 16)
+    drawBandVector(ctx as CanvasRenderingContext2D, layout.titleBand, layout.titleText, 18, scale)
+    drawBandVector(ctx as CanvasRenderingContext2D, layout.bodyBand, layout.bodyText, 16, scale)
   }
 
-  const img = ctx.getImageData(0, 0, w, h)
-  for (let i = 0, p = 0; i < out.length; i++, p += 4) {
-    out[i] = img.data[p]! / 255
+  const img = ctx.getImageData(0, 0, sw, sh)
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let max = 0
+      for (let dy = 0; dy < scale; dy++) {
+        for (let dx = 0; dx < scale; dx++) {
+          const p = ((y * scale + dy) * sw + (x * scale + dx)) * 4
+          const v = img.data[p]! / 255
+          if (v > max) max = v
+        }
+      }
+      out[y * w + x] = max >= 0.5 ? 1 : 0
+    }
   }
   return out
 }
@@ -200,8 +224,8 @@ export type PaintPreviewOptions = {
 }
 
 /**
- * Even Hub–style matrix mirror: light companion bg, ghost (planned) dots,
- * then black active dots for what is actually on the G2.
+ * Even Hub–style matrix mirror: light companion bg, ghost (planned) LED dots,
+ * then dark active dots for what is on the G2.
  */
 export function paintGlassesPreview(
   canvas: HTMLCanvasElement,
@@ -236,10 +260,19 @@ export function paintGlassesPreview(
     pitch: DOT_PITCH,
   })
 
-  const r = Math.max(1, DOT_PITCH - 1)
+  // Pixel-perfect LED stamps (no canvas arc AA) — closer to Even Hub companion.
+  const r = 1
   for (const d of dots) {
+    const cx = d.x + 1
+    const cy = d.y + 1
     ctx.fillStyle = d.kind === 'active' ? DOT_ACTIVE : DOT_GHOST
-    ctx.fillRect(d.x, d.y, r, r)
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (dx * dx + dy * dy <= r * r + r) {
+          ctx.fillRect(cx + dx, cy + dy, 1, 1)
+        }
+      }
+    }
   }
 
   return layout

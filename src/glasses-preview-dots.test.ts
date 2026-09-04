@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import {
   DOT_PITCH,
+  RASTER_SCALE,
   plannedDeckView,
   sampleDotsFromCoverage,
 } from './glasses-preview.ts'
 
 describe('dot-matrix preview helpers', () => {
-  it('uses a 2px pitch so strokes stay on the G2 pixel grid', () => {
-    expect(DOT_PITCH).toBe(2)
+  it('uses a 3px pitch so LED dots match Even Hub companion spacing', () => {
+    expect(DOT_PITCH).toBe(3)
+  })
+
+  it('supersamples before max-pool for solid strokes', () => {
+    expect(RASTER_SCALE).toBeGreaterThanOrEqual(2)
   })
 
   it('plannedDeckView is the idle lookUp chrome used as ghost', () => {
@@ -17,30 +22,28 @@ describe('dot-matrix preview helpers', () => {
     expect(v.body).toContain('Record')
   })
 
-  it('samples coverage into active vs ghost dots', () => {
-    // 4×4 coverage: top-left bright, rest dim ghost
-    const w = 4
-    const h = 4
+  it('samples coverage into active vs ghost dots on pitch grid', () => {
+    const w = 6
+    const h = 6
     const active = new Float32Array(w * h)
     const ghost = new Float32Array(w * h)
-    active[0] = 1
-    active[1] = 0.8
-    ghost[0] = 1
-    ghost[1] = 1
-    ghost[2] = 1
-    ghost[3] = 1
+    // Light a full 3×3 active cell at origin; ghost fills the rest.
+    for (let y = 0; y < 3; y++) {
+      for (let x = 0; x < 3; x++) active[y * w + x] = 1
+    }
+    ghost.fill(1)
     const dots = sampleDotsFromCoverage({
       width: w,
       height: h,
       active,
       ghost,
-      pitch: 2,
+      pitch: 3,
     })
     expect(dots.some((d) => d.kind === 'active')).toBe(true)
     expect(dots.some((d) => d.kind === 'ghost')).toBe(true)
     for (const d of dots) {
-      expect(d.x % 2).toBe(0)
-      expect(d.y % 2).toBe(0)
+      expect(d.x % 3).toBe(0)
+      expect(d.y % 3).toBe(0)
     }
   })
 })

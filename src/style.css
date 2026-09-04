@@ -3,16 +3,16 @@
   --card: #ffffff;
   --line: #e2e2e2;
   --line-strong: #1a1a1a;
-  --text: #151515;
-  --text-dim: #8a8a8a;
+  --text: #232323;
+  --text-dim: #7b7b7b;
   --pressed: #ebebeb;
-  /* Even Hub home: ~12px cards, tight 8px gutters */
-  --radius: 12px;
-  --radius-sm: 10px;
-  --gap: 8px;
-  --icon-feature: 18px;
-  --icon-quick: 18px;
-  --icon-bar: 20px;
+  --radius: 5px;
+  --radius-sm: 5px;
+  --gap: 5px;
+  --icon-feature: 15px;
+  --icon-quick: 15px;
+  --icon-bar: 15px;
+  --icon-inset: 20px;
   --font: "Hiragino Sans", "Noto Sans JP", "SF Pro Text", "Segoe UI", sans-serif;
   --mono: "IBM Plex Mono", "SF Mono", ui-monospace, monospace;
   --safe-bottom: 12px;
@@ -83,7 +83,7 @@ body {
   aspect-ratio: 576 / 288;
   background: transparent;
   border-radius: 0;
-  image-rendering: pixelated;
+  image-rendering: auto;
   border: none;
 }
 
@@ -98,7 +98,7 @@ body {
   border: none;
   background: var(--card);
   border-radius: var(--radius-sm);
-  min-height: 56px;
+  min-height: 52px;
   padding: 8px 4px;
   display: flex;
   flex-direction: column;
@@ -138,7 +138,8 @@ body {
   background: var(--card);
   border-radius: var(--radius);
   min-height: 96px;
-  padding: 12px;
+  /* Icon ~20px from top/left; label sits toward the bottom */
+  padding: var(--icon-inset) 12px 12px var(--icon-inset);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -221,7 +222,7 @@ body {
   display: grid;
   place-items: center;
   color: var(--text);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 
 .tab-bar__item.is-active {
