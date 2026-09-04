@@ -4,6 +4,7 @@ import {
   GLASSES_W,
   contentWidth,
 } from './glasses-layout.ts'
+import { LOOK_UP_THRESHOLDS_DEG, type LookUpThresholdDeg } from './look-up-pose.ts'
 
 /** Default selected row on the idle lookUp deck (Record). */
 export const DECK_MENU_RECORD = 0
@@ -141,4 +142,20 @@ export function formatDeckPacked(
   args: DeckHeaderArgs & DeckBodyArgs,
 ): string {
   return `${formatDeckTitle(args)}\n${formatDeckBody(args)}`
+}
+
+/** Settings title band: label + full-width ━ rule. */
+export function formatSettingsTitle(maxWidth = deckHeaderContentWidth()): string {
+  return `Settings\n${buildTitleSeparator(maxWidth)}`
+}
+
+/** Look-up threshold rows for the settings body. */
+export function formatSettingsBody(thresholdDeg: LookUpThresholdDeg): string {
+  return [
+    'Look-up',
+    ...LOOK_UP_THRESHOLDS_DEG.map((deg) => {
+      const bullet = deg === thresholdDeg ? SELECTED_BULLET : IDLE_BULLET
+      return `${bullet} ${deg}°`
+    }),
+  ].join('\n')
 }

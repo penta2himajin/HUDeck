@@ -12,6 +12,8 @@ import {
   formatDeckHeader,
   formatDeckPacked,
   formatDeckTitle,
+  formatSettingsBody,
+  formatSettingsTitle,
   padEndToWidth,
 } from './deck-chrome.ts'
 
@@ -97,5 +99,13 @@ describe('deck chrome', () => {
       `> ${DECK_MENU_ITEMS[2]}`,
     ])
     expect(body).not.toContain('━')
+  })
+
+  it('formats settings title + look-up threshold rows', () => {
+    const titleLines = formatSettingsTitle().split('\n')
+    expect(titleLines[0]).toBe('Settings')
+    expect(titleLines[1]!.startsWith('━')).toBe(true)
+    expect(formatSettingsBody(20).split('\n')).toEqual(['Look-up', '▶ 20°', '> 30°'])
+    expect(formatSettingsBody(30).split('\n')).toEqual(['Look-up', '> 20°', '▶ 30°'])
   })
 })

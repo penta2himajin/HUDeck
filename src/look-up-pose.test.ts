@@ -4,6 +4,7 @@ import {
   LOOK_UP_THRESHOLDS_DEG,
   pitchDegreesFromGravity,
   resolveLookUpPose,
+  rollDegreesFromGravity,
   type LookUpThresholdDeg,
 } from './look-up-pose.ts'
 
@@ -40,6 +41,30 @@ describe('pitchDegreesFromGravity', () => {
       z: Math.cos((20 * Math.PI) / 180),
     })
     expect(deg).toBeCloseTo(-20, 5)
+  })
+})
+
+describe('rollDegreesFromGravity', () => {
+  it('is ~0° at level rest (gravity on +z)', () => {
+    expect(rollDegreesFromGravity({ x: 0, y: 0, z: 1 })).toBeCloseTo(0, 5)
+  })
+
+  it('reports positive degrees for tilt-R (+y)', () => {
+    const deg = rollDegreesFromGravity({
+      x: 0,
+      y: Math.sin((25 * Math.PI) / 180),
+      z: Math.cos((25 * Math.PI) / 180),
+    })
+    expect(deg).toBeCloseTo(25, 5)
+  })
+
+  it('reports negative degrees for tilt-L (−y)', () => {
+    const deg = rollDegreesFromGravity({
+      x: 0,
+      y: -Math.sin((15 * Math.PI) / 180),
+      z: Math.cos((15 * Math.PI) / 180),
+    })
+    expect(deg).toBeCloseTo(-15, 5)
   })
 })
 

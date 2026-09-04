@@ -19,6 +19,15 @@ export function pitchDegreesFromGravity(g: GravitySample): number {
   return (Math.atan2(g.x, g.z) * 180) / Math.PI
 }
 
+/**
+ * Roll from gravity-normalized accel (ear ↔ shoulder).
+ * Rest ≈ +z; tilt-R → +y, tilt-L → −y (same axes as head-tilt-control).
+ * Degrees: positive = tilt-R, negative = tilt-L.
+ */
+export function rollDegreesFromGravity(g: GravitySample): number {
+  return (Math.atan2(g.y, g.z) * 180) / Math.PI
+}
+
 export function resolveLookUpPose(args: {
   pitchDeg: number
   thresholdDeg: LookUpThresholdDeg

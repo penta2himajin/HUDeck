@@ -43,8 +43,8 @@ export type GlassesChrome = {
  */
 export function titleBandHeight(view: GlassesView, chrome: GlassesChrome = glassesChrome(view)): number {
   if (chrome.quiet && view.kind === 'blank') return 1
-  // Deck: header/rule/menu all live in the body stream — no title/body gap.
-  if (view.kind === 'deck') return 1
+  // Deck / settings: header/rule/menu all live in the body stream — no title/body gap.
+  if (view.kind === 'deck' || view.kind === 'settings') return 1
   const lines = Math.max(1, chrome.title.split('\n').length)
   if (lines >= 2) {
     return lines * GLASSES_LINE_HEIGHT_PX + 2 * GLASSES_PADDING_LENGTH
@@ -68,9 +68,9 @@ export function glassesChrome(view: GlassesView): GlassesChrome {
     }
   }
 
-  // Neutral recording / chat: indicator only, no brand, no frame.
+  // Neutral recording / chat / settings: indicator only, no brand, no frame.
   if (
-    (view.kind === 'recording' || view.kind === 'chat') &&
+    (view.kind === 'recording' || view.kind === 'chat' || view.kind === 'settings') &&
     !view.title &&
     view.indicator
   ) {
@@ -84,9 +84,9 @@ export function glassesChrome(view: GlassesView): GlassesChrome {
     }
   }
 
-  if (view.kind === 'deck') {
+  if (view.kind === 'deck' || view.kind === 'settings') {
     // Pack header + ━ rule + menu into the body so LVGL line slots stay
-    // consecutive (no blank between rule and Record). Title band collapses.
+    // consecutive (no blank between rule and first row). Title band collapses.
     const packed = [view.title, view.body].filter((s) => s && s.trim()).join('\n')
     return {
       title: ' ',

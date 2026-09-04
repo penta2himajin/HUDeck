@@ -142,3 +142,139 @@ describe('recording views', () => {
     expect(up.body).toContain('suggest: on')
   })
 })
+
+describe('look-up settings', () => {
+  beforeEach(() => {
+    setNowProvider(() => 1_000_000)
+  })
+
+  it('defaults look-up threshold to 20°', () => {
+    expect(initialState(0).lookUpThresholdDeg).toBe(20)
+  })
+
+  it('opens settings from idle lookUp and shows threshold picker', () => {
+    let s = initialState(0)
+    s = reduce(s, { type: 'pose', pose: 'lookUp' }, 0)
+    s = reduce(s, { type: 'openSettings' }, 1)
+    expect(s.mode).toBe('settings')
+    const view = deriveGlassesView(s, 1)
+    expect(view.kind).toBe('settings')
+    expect(view.title).toContain('Settings')
+    expect(view.title).toMatch(/^Settings\n━/)
+    expect(view.body.split('\n')).toEqual(['Look-up', '▶ 20°', '> 30°'])
+    expect(view.indicator).toBeNull()
+  })
+
+  it('does not open settings unless idle lookUp without confirm', () => {
+    let s = initialState(0)
+    s = reduce(s, { type: 'openSettings' }, 1)
+    expect(s.mode).toBe('idle')
+
+    s = reduce(s, { type: 'pose', pose: 'lookUp' }, 2)
+    s = reduce(s, { type: 'conversationDetected' }, 3)
+    s = reduce(s, { type: 'openSettings' }, 4)
+    expect(s.mode).toBe('idle')
+    expect(s.confirm.status).toBe('pending')
+  })
+
+  it('updates threshold selection and keeps settings mode', () => {
+    let s = initialState(0)
+    s = reduce(s, { type: 'pose', pose: 'lookUp' }, 0)
+    s = reduce(s, { type: 'openSettings' }, 1)
+    s = reduce(s, { type: 'setLookUpThreshold', deg: 30 }, 2)
+    expect(s.lookUpThresholdDeg).toBe(30)
+    expect(s.mode).toBe('settings')
+    const view = deriveGlassesView(s, 2)
+    expect(view.body.split('\n')).toEqual(['Look-up', '> 20°', '▶ 30°'])
+  })
+
+  it('minimizes settings on lookDown and closes only via closeSettings', () => {
+    let s = initialState(0)
+    s = reduce(s, { type: 'pose', pose: 'lookUp' }, 0)
+    s = reduce(s, { type: 'openSettings' }, 1)
+    s = reduce(s, { type: 'pose', pose: 'neutral' }, 2)
+    expect(s.mode).toBe('settings')
+    const minimized = deriveGlassesView(s, 2)
+    expect(minimized.kind).toBe('settings')
+    expect(minimized.indicator).toBe('S')
+    expect(minimized.body).toBe('')
+
+    s = reduce(s, { type: 'closeSettings' }, 3)
+    expect(s.mode).toBe('idle')
+  })
+
+  it('does not raise confirm during settings', () => {
+    let s = initialState(0)
+    s = reduce(s, { type: 'pose', pose: 'lookUp' }, 0)
+    s = reduce(s, { type: 'openSettings' }, 1)
+    s = reduce(s, { type: 'conversationDetected' }, 2)
+    expect(s.mode).toBe('settings')
+    expect(s.confirm.status).toBe('inactive')
+  })
+
+  it('allows setLookUpThreshold from idle without opening settings', () => {
+    let s = initialState(0)
+    s = reduce(s, { type: 'setLookUpThreshold', deg: 30 }, 1)
+    expect(s.lookUpThresholdDeg).toBe(30)
+    expect(s.mode).toBe('idle')
+  })
+})
+
+describe('lookUp head-tilt controls', () => {
+  beforeEach(() => {
+    setNowProvider(() => 1_000_000)
+  })
+
+  it('ignores controls unless pose is lookUp', () => {
+    let s = initialState(0)
+    s = reduce(s, { type: 'control', control: 'swipe-down' }, 1)
+    expect(s.menuIndex).toBe(0)
+  })
+
+  it('moves deck selection with swipe-up / swipe-down while lookUp', () => {
+    let s = initialState(0)
+    s = reduce(s, { type: 'pose', pose: 'lookUp' }, 0)
+    s = reduce(s, { type: 'control', control: 'swipe-down' }, 1)
+    expect(s.menuIndex).toBe(1)
+    let view = deriveGlassesView(s, 1)
+    expect(view.body.split('\n')).toEqual(['> Record', '▶ Chat', '> Settings'])
+
+    s = reduce(s, { type: 'control', control: 'swipe-down' }, 2)
+    expect(s.menuIndex).toBe(2)
+    s = reduce(s, { type: 'control', control: 'swipe-up' }, 3)
+    expect(s.menuIndex).toBe(1)
+  })
+
+  it('activates selection with tap (tilt-F) and backs out with dbl (tilt-B)', () => {
+    let s = initialState(0)
+    s = reduce(s, { type: 'pose', pose: 'lookUp' }, 0)
+    s = reduce(s, { type: 'control', control: 'swipe-down' }, 1) // Chat
+    s = reduce(s, { type: 'control', control: 'swipe-down' }, 2) // Settings
+    s = reduce(s, { type: 'control', control: 'tap' }, 3)
+    expect(s.mode).toBe('settings')
+
+    s = reduce(s, { type: 'control', control: 'dbl' }, 4)
+    expect(s.mode).toBe('idle')
+    expect(s.pose).toBe('lookUp')
+  })
+
+  it('accepts pending confirm with tap while lookUp', () => {
+    let s = initialState(0)
+    s = reduce(s, { type: 'pose', pose: 'lookUp' }, 0)
+    s = reduce(s, { type: 'conversationDetected' }, 1)
+    s = reduce(s, { type: 'control', control: 'tap' }, 2)
+    expect(s.mode).toBe('recording')
+    expect(s.confirm.status).toBe('inactive')
+  })
+
+  it('cycles look-up threshold in settings via swipe', () => {
+    let s = initialState(0)
+    s = reduce(s, { type: 'pose', pose: 'lookUp' }, 0)
+    s = reduce(s, { type: 'openSettings' }, 1)
+    expect(s.lookUpThresholdDeg).toBe(20)
+    s = reduce(s, { type: 'control', control: 'swipe-down' }, 2)
+    expect(s.lookUpThresholdDeg).toBe(30)
+    const view = deriveGlassesView(s, 2)
+    expect(view.body).toContain('▶ 30°')
+  })
+})
