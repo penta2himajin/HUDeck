@@ -34,8 +34,8 @@ export const DOT_GHOST_LEVEL = 170
 export const DEFAULT_PREVIEW_INTENSITY = 0.55
 /** Hub `borderRadius` 0–10; mild rounding like the official shell. */
 export const PREVIEW_BORDER_RADIUS = 6
-/** Air around the glasses framebuffer (px); with shell gap 5px → ~35px to cards. */
-export const PREVIEW_PAD_PX = 30
+/** Air around the glasses framebuffer (px); with shell gap 5px → ~30px to cards. */
+export const PREVIEW_PAD_PX = 25
 /** G2 canvas aspect (576×288 = 2). */
 export const PREVIEW_ASPECT = GLASSES_W / GLASSES_H
 
