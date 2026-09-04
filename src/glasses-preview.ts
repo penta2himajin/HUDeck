@@ -16,15 +16,19 @@ export const TITLE_BAND_H = 36
 export const DOT_PITCH = 3
 /** Supersample before max-pool so strokes stay solid (AA text → muddy dots). */
 export const RASTER_SCALE = 3
-export const PREVIEW_BG = '#ffffff'
+/** Same as phone shell `--bg` so the matrix sits flush on the page. */
+export const PREVIEW_BG = '#f0f0f0'
+export const PREVIEW_BG_LEVEL = 0xf0
 export const DOT_ACTIVE_LEVEL = 28
 export const DOT_GHOST_LEVEL = 190
 export const DEFAULT_PREVIEW_INTENSITY = 0.85
 
-/** Map a 0..255 ink level through preview intensity (1 = full contrast on white). */
+/** Map a 0..255 ink level through preview intensity (1 = full contrast on page bg). */
 export function inkCss(level: number, intensity: number): string {
   const i = Math.max(0, Math.min(1, intensity))
-  const v = Math.round(255 - (255 - level) * i)
+  const bg = PREVIEW_BG_LEVEL
+  const ink = Math.min(level, bg)
+  const v = Math.round(bg - (bg - ink) * i)
   return `rgb(${v},${v},${v})`
 }
 
@@ -234,7 +238,7 @@ export type PaintPreviewOptions = {
 }
 
 /**
- * White-background matrix mirror with adjustable ink intensity.
+ * Page-background matrix mirror with adjustable ink intensity.
  * Ghost = planned lookUp deck; active = what is currently on the G2.
  */
 export function paintGlassesPreview(

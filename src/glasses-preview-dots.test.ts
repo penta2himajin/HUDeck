@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   DOT_PITCH,
+  PREVIEW_BG,
+  PREVIEW_BG_LEVEL,
   RASTER_SCALE,
   inkCss,
   plannedDeckView,
@@ -23,9 +25,14 @@ describe('dot-matrix preview helpers', () => {
     expect(v.body).toContain('Record')
   })
 
-  it('inkCss lightens toward white as intensity drops', () => {
+  it('preview fill matches the phone page background (not pure white)', () => {
+    expect(PREVIEW_BG).toBe('#f0f0f0')
+    expect(PREVIEW_BG_LEVEL).toBe(0xf0)
+  })
+
+  it('inkCss lightens toward the page background as intensity drops', () => {
     expect(inkCss(0, 1)).toBe('rgb(0,0,0)')
-    expect(inkCss(0, 0)).toBe('rgb(255,255,255)')
+    expect(inkCss(0, 0)).toBe(`rgb(${PREVIEW_BG_LEVEL},${PREVIEW_BG_LEVEL},${PREVIEW_BG_LEVEL})`)
   })
 
   it('samples coverage into active vs ghost dots on pitch grid', () => {

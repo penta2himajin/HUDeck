@@ -9,7 +9,7 @@
   --radius: 8px;
   --radius-sm: 8px;
   --gap: 5px;
-  --edge: 10px;
+  --edge: 5px;
   --icon-feature: 15px;
   --icon-quick: 15px;
   --icon-bar: 15px;
@@ -81,7 +81,7 @@ body {
   width: 100%;
   height: auto;
   aspect-ratio: 576 / 288;
-  background: #ffffff;
+  background: var(--bg);
   border-radius: 0;
   image-rendering: auto;
   border: none;
