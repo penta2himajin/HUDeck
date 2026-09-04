@@ -36,7 +36,12 @@ describe('smooth greyscale preview', () => {
     const v = plannedDeckView()
     expect(v.kind).toBe('deck')
     expect(v.title).toContain('HUDeck')
-    expect(v.body).toContain('Record')
+    expect(v.title).toContain('| 12:00 |')
+    expect(v.title.split('\n')[1]?.startsWith('━')).toBe(true)
+    expect(v.body).toContain('▶ Record')
+    expect(v.body).toContain('> Chat')
+    expect(v.body).toContain('> Settings')
+    expect(v.body).not.toContain('━')
   })
 
   it('preview fill matches the phone page background (not pure white)', () => {
@@ -51,14 +56,14 @@ describe('smooth greyscale preview', () => {
     expect(coverageInkByte(1, 40, 0.55)).toBeLessThan(PREVIEW_BG_LEVEL)
   })
 
-  it('lookUp deck uses rounded body frame and Hub pad+border inset', () => {
+  it('lookUp deck has no Hub body frame (separator is text ━ only)', () => {
     const layout = previewLayout(plannedDeckView())
-    expect(layout.bodyBorder).toBe(1)
-    expect(layout.borderRadius).toBe(PREVIEW_BORDER_RADIUS)
-    expect(layout.bodyBand.borderRadius).toBe(PREVIEW_BORDER_RADIUS)
+    expect(layout.bodyBorder).toBe(0)
+    expect(layout.borderRadius).toBe(0)
+    expect(layout.bodyBand.borderRadius).toBe(0)
     expect(layout.bodyBand.padding).toBe(4)
-    expect(contentInset(layout.bodyBorder, layout.bodyBand.padding)).toBe(5)
-    expect(contentWidth(layout.bodyBand.width, layout.bodyBorder, layout.bodyBand.padding)).toBe(566)
+    expect(contentInset(layout.bodyBorder, layout.bodyBand.padding)).toBe(4)
+    expect(contentWidth(layout.bodyBand.width, layout.bodyBorder, layout.bodyBand.padding)).toBe(568)
   })
 
   it('drawBandBorder strokes a rounded rect (no sharp-corner fill strips)', () => {

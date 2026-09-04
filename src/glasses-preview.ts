@@ -1,4 +1,9 @@
 import {
+  DECK_MENU_RECORD,
+  formatDeckBody,
+  formatDeckTitle,
+} from './deck-chrome.ts'
+import {
   GLASSES_H,
   GLASSES_LINE_HEIGHT_PX,
   GLASSES_PADDING_LENGTH,
@@ -7,13 +12,13 @@ import {
   contentWidth,
   wrapByPixels,
 } from './glasses-layout.ts'
-import { glassesChrome } from './hub-page.ts'
+import { glassesChrome, titleBandHeight, TITLE_BAND_H_SINGLE } from './hub-page.ts'
 import type { GlassesView } from './state.ts'
 
 export { GLASSES_H, GLASSES_W, GLASSES_LINE_HEIGHT_PX }
 
-/** Matches hub-page title band height for non-quiet views. */
-export const TITLE_BAND_H = 36
+/** Matches hub-page single-line title band height for non-deck views. */
+export const TITLE_BAND_H = TITLE_BAND_H_SINGLE
 
 /**
  * G2: dual 576×288 monochrome green, 16 greyscale levels
@@ -93,9 +98,9 @@ export type GlassesPreviewLayout = {
 export function previewLayout(view: GlassesView): GlassesPreviewLayout {
   const chrome = glassesChrome(view)
   const quietBlank = chrome.quiet && view.kind === 'blank'
-  const titleH = quietBlank ? 1 : TITLE_BAND_H
-  const bodyY = quietBlank ? 1 : TITLE_BAND_H
-  const bodyH = quietBlank ? 1 : GLASSES_H - TITLE_BAND_H
+  const titleH = titleBandHeight(view, chrome)
+  const bodyY = quietBlank ? 1 : titleH
+  const bodyH = quietBlank ? 1 : GLASSES_H - titleH
   const pad = chrome.quiet ? 0 : GLASSES_PADDING_LENGTH
   const radius = chrome.quiet ? 0 : chrome.borderRadius
 
@@ -133,10 +138,20 @@ export function previewLayout(view: GlassesView): GlassesPreviewLayout {
 export function plannedDeckView(): GlassesView {
   return {
     kind: 'deck',
-    title: 'HUDeck',
-    body: '> Record\n> Chat\nsuggest-armed: off',
+    title: formatDeckTitle({ timeHm: '12:00' }),
+    body: formatDeckBody({ selectedIndex: DECK_MENU_RECORD }),
     indicator: null,
   }
+}
+
+/** True for the title-band ━ rule line (may end with thin ▬ toppers). */
+export function isDeckRuleLine(line: string): boolean {
+  return line.length > 0 && (line.startsWith('━') || line.startsWith('▬'))
+}
+
+/** Ghost the planned lookUp deck only while the live view is blank. */
+export function shouldShowPlannedDeckGhost(view: GlassesView): boolean {
+  return view.kind === 'blank'
 }
 
 function roundRectPath(
@@ -183,7 +198,7 @@ export function drawBandBorder(
   ctx.stroke()
 }
 
-function drawBandVector(
+export function drawBandVector(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   band: PreviewBand,
   content: string,
@@ -211,10 +226,25 @@ function drawBandVector(
   let y = (band.y + inset) * s
   const lineH = GLASSES_LINE_HEIGHT_PX * s
   const yMax = (band.y + band.height - inset) * s
+  let prevWasText = false
   for (const line of lines) {
     if (line.length === 0 && lines.length === 1) continue
     if (y + fp > yMax) break
-    ctx.fillText(line, x, y)
+    if (isDeckRuleLine(line)) {
+      // Canvas ━ glyphs are ~8px vs pretext 20px — draw a bar so the rule
+      // reaches the content-box right edge in the phone preview.
+      // Pack directly under the header glyphs (avoid a blank-looking LVGL slot).
+      if (prevWasText) {
+        y = Math.max(band.y * s + inset * s, y - lineH + fp + 2 * s)
+      }
+      const barH = Math.max(2 * s, Math.round(fp * 0.12))
+      const barY = y + Math.round((fp - barH) / 2)
+      ctx.fillRect(x, barY, maxW * s, barH)
+      prevWasText = false
+    } else {
+      ctx.fillText(line, x, y)
+      prevWasText = true
+    }
     y += lineH
   }
 }
@@ -294,11 +324,13 @@ export function paintGlassesPreview(
   const ctx = canvas.getContext('2d')
   if (!ctx) return layout
 
-  const ghost = rasterizeLayoutCoverage(previewLayout(plannedDeckView()))
-  const active =
-    layout.quiet && view.kind === 'blank'
-      ? new Float32Array(w * h)
-      : rasterizeLayoutCoverage(layout)
+  const showGhost = shouldShowPlannedDeckGhost(view)
+  const ghost = showGhost
+    ? rasterizeLayoutCoverage(previewLayout(plannedDeckView()))
+    : new Float32Array(w * h)
+  const active = showGhost
+    ? new Float32Array(w * h)
+    : rasterizeLayoutCoverage(layout)
 
   const img = ctx.createImageData(w, h)
   const data = img.data

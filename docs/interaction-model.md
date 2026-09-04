@@ -54,14 +54,32 @@ Weak → strong: **minimal < compact < detail**.
 | mode | pose | view |
 |---|---|---|
 | idle (no confirm) | neutral | Fully quiet: no brand text, no deck frame (capture surface only) |
-| idle (no confirm) | lookUp | Glance deck with **HUDeck** title (brand is lookUp-only) |
+| idle (no confirm) | lookUp | Glance deck (see chrome below) |
 | idle + confirm compact | neutral | Compact confirm |
-| idle + confirm minimal | lookUp | Deck remains; `REC?` affordance |
+| idle + confirm minimal | lookUp | Deck remains; `REC?` in header right slot |
 | idle + confirm detail | lookUp | Confirm detail |
-| recording | neutral | Recording indicator only |
-| recording | lookUp | Elapsed / transcript / stop / mark |
+| recording | neutral | `REC●` indicator only (no brand frame) |
+| recording | lookUp | Elapsed / transcript / stop / mark (`REC●` in title) |
 | chat | lookUp | Chat UI |
 | chat | neutral | Minimized; session continues; tiny `C` indicator (tunable) |
+
+### Idle lookUp glance deck (chrome)
+
+Sparse menu; brand is lookUp-only. No suggest-armed line on the deck.
+
+```text
+HUDeck        | 15:37 |        REC●
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+▶ Record
+> Chat
+> Settings
+```
+
+- Header: `HUDeck` left, `| hh:mm |` with the **`:` on the content midline**, optional right slot (`REC●` / `REC?`).
+- Full-width rule on the next line, then menu rows — all consecutive in one body stream (title band collapsed) so there is no blank between rule and `▶ Record`.
+- Rule fills the content box to the right edge (`━`, topped up with thin `▬` when needed; phone preview draws a bar).
+- No Hub container border/frame on the glance deck or recording lookUp — chrome is text only.
+- Settings row is display-only until a settings flow exists.
 
 ## Look-up sensing (IMU)
 

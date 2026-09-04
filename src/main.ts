@@ -261,7 +261,8 @@ async function main() {
     const prev = state
     state = reduce(state, { type: 'tick', nowMs: Date.now() }, Date.now())
     if (prev.confirm.status !== state.confirm.status) void paint(true)
-    else if (state.mode === 'recording' && state.pose === 'lookUp') void paint(false)
+    // Refresh elapsed (recording) and clock (idle / minimal-confirm deck).
+    else if (state.pose === 'lookUp') void paint(false)
   }, 500)
 
   ;(window as unknown as { __hudeckDispatch?: (e: AppEvent) => void }).__hudeckDispatch =
