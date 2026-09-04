@@ -58,11 +58,21 @@ Log `[hudeck] ready` only after `createStartUpPageContainer` (or plain-browser f
 
 ## Session Handoff
 
-See `docs/handoff-protocol.md`. Label: `session-handoff`.
+Long-running workstreams use GitHub issues for cross-session continuity. See `docs/handoff-protocol.md` for the full protocol.
+
+- Label: `session-handoff`
+- One issue per workstream (not per session)
+- On session start, read the relevant handoff issue and confirm the **Next action** with the user before executing.
+- Issue template: `.github/ISSUE_TEMPLATE/handoff.md`
 
 ## Internationalisation
 
-Follow `docs/i18n-policy.md`. User-facing: `README.md` + `README.ja.md`.
+If this project ships a Japanese-facing entry point, follow `docs/i18n-policy.md`:
+
+- Translations are suffix files (`README.ja.md` next to `README.md`); no language directories.
+- Only `README.md` and the user-facing introduction tier of `docs/` are in scope. Engineering docs and ADRs stay English-only.
+- Each translated file carries a `> Source: <name>.md @ <sha>` header. PRs are never blocked on translation parity.
+- User-facing today: `README.md` + `README.ja.md`.
 
 ---
 
