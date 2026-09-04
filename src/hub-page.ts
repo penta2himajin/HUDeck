@@ -62,12 +62,13 @@ export function glassesChrome(view: GlassesView): GlassesChrome {
 
   if (view.kind === 'deck') {
     // Title already carries brand | clock | optional right slot (REC● / REC?).
+    // No Hub container frame — separator is the text ━ rule in the body.
     return {
       title: view.title || 'HUDeck',
       body: view.body || ' ',
       titleBorder: 0,
-      bodyBorder: 1,
-      borderRadius: FRAME_BORDER_RADIUS,
+      bodyBorder: 0,
+      borderRadius: 0,
       quiet: false,
     }
   }

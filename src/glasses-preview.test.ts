@@ -23,7 +23,7 @@ describe('previewLayout', () => {
     expect(layout.bodyBand.height).toBe(GLASSES_H - TITLE_BAND_H)
     expect(layout.titleText).toBe(chrome.title)
     expect(layout.bodyText).toBe(chrome.body)
-    expect(layout.bodyBorder).toBe(1)
+    expect(layout.bodyBorder).toBe(0)
     expect(layout.quiet).toBe(false)
   })
 

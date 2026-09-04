@@ -25,8 +25,9 @@ describe('glassesChrome', () => {
     expect(chrome.quiet).toBe(false)
     expect(chrome.title).toContain('HUDeck')
     expect(chrome.body).toContain('▶ Record')
-    expect(chrome.bodyBorder).toBe(1)
-    expect(chrome.borderRadius).toBe(6)
+    // Glance deck is text-only (━ rule), no Hub container frame.
+    expect(chrome.bodyBorder).toBe(0)
+    expect(chrome.borderRadius).toBe(0)
   })
 
   it('shows REC● indicator without brand frame at recording+neutral', () => {

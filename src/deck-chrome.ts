@@ -24,11 +24,11 @@ export function deckHeaderContentWidth(
   return contentWidth(canvasWidth, 0, padding)
 }
 
-/** Body content width (border 1, pad 4) — matches hub-page bodyProp. */
+/** Body content width (border 0, pad 4) — matches frameless hub-page deck body. */
 export function deckBodyContentWidth(
   canvasWidth = GLASSES_W,
   padding = GLASSES_PADDING_LENGTH,
-  border = 1,
+  border = 0,
 ): number {
   return contentWidth(canvasWidth, border, padding)
 }
