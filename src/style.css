@@ -1,45 +1,217 @@
+:root {
+  --bg: #0b0d10;
+  --bg-elev: #14181f;
+  --bg-panel: #10141a;
+  --line: #2a313c;
+  --line-soft: #1c222b;
+  --text: #e8ecf2;
+  --text-dim: #8b95a5;
+  --accent: #5b8cff;
+  --accent-soft: rgba(91, 140, 255, 0.16);
+  --chip: #1a2030;
+  --ok: #6bcb8b;
+  --font: "SF Pro Text", "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  --mono: "IBM Plex Mono", "SF Mono", ui-monospace, monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html,
 body {
   height: 100%;
   margin: 0;
-  background: #10140f;
-  color: #e7efe4;
-  font-family: "IBM Plex Mono", "SF Mono", ui-monospace, monospace;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
 }
 
-#app {
-  padding: 16px;
-  max-width: 42rem;
+.phone-shell {
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100%;
+  background:
+    radial-gradient(120% 60% at 50% -10%, #1a2740 0%, transparent 55%),
+    var(--bg);
 }
 
-.status {
-  white-space: pre-wrap;
+.phone-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.phone-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.phone-brand {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.phone-sub {
+  margin: 0;
   font-size: 13px;
-  line-height: 1.45;
-  padding: 12px;
-  border: 1px solid #2a3328;
-  background: linear-gradient(160deg, #161b14, #0c0f0b);
-  min-height: 10rem;
+  color: var(--text-dim);
 }
 
-.controls {
+.status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: var(--chip);
+  border: 1px solid var(--line-soft);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.glasses-stage {
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.glasses-stage__label,
+.glasses-stage__meta {
+  width: 100%;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+}
+
+.glasses-stage__meta {
+  text-align: left;
+}
+
+.glasses-canvas {
+  display: block;
+  width: 100%;
+  max-width: 576px;
+  height: auto;
+  aspect-ratio: 576 / 288;
+  background: #000;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px #222;
+  image-rendering: pixelated;
+}
+
+.phone-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.control-group {
+  background: var(--bg-elev);
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.control-group__title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+
+.btn-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 12px;
 }
 
-.controls button {
+.btn {
   appearance: none;
-  border: 1px solid #3d4a38;
-  background: #1a2118;
-  color: #e7efe4;
-  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: #1a1f29;
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 10px;
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
+  min-height: 40px;
 }
 
-.controls button:hover {
-  border-color: #7ea36c;
+.btn:hover {
+  border-color: #3d4a63;
+  background: #202635;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn--accent {
+  background: var(--accent-soft);
+  border-color: #3d5fad;
+  color: #c9d9ff;
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  min-height: 36px;
+  padding: 8px 10px;
+}
+
+.debug-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.debug-panel__title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.debug-panel__body {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-dim);
+  min-height: 6rem;
 }
